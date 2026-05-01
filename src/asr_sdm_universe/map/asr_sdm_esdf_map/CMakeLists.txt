@@ -58,7 +58,15 @@ add_executable(obj_generator
   src/obj_generator.cpp
 )
 
+add_executable(sdf_map_node
+  src/sdf_map_node.cpp
+)
+
 target_include_directories(obj_generator PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_include_directories(sdf_map_node PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
@@ -69,7 +77,15 @@ ament_target_dependencies(obj_generator
   visualization_msgs
 )
 
-install(TARGETS asr_sdm_esdf_map obj_generator
+ament_target_dependencies(sdf_map_node
+  rclcpp
+)
+
+target_link_libraries(sdf_map_node
+  asr_sdm_esdf_map
+)
+
+install(TARGETS asr_sdm_esdf_map obj_generator sdf_map_node
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -78,6 +94,14 @@ install(TARGETS asr_sdm_esdf_map obj_generator
 
 install(DIRECTORY include/
   DESTINATION include
+)
+
+install(DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
+install(DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}
 )
 
 ament_export_targets(export_${PROJECT_NAME})

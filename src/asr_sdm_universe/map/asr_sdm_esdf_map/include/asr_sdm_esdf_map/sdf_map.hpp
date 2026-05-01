@@ -58,7 +58,7 @@ using namespace std;
 
 // voxel hashing
 template <typename T>
-struct matrix_hash : std::unary_function<T, size_t> {
+struct matrix_hash {
   std::size_t operator()(T const& matrix) const {
     size_t seed = 0;
     for (size_t i = 0; i < matrix.size(); ++i) {
