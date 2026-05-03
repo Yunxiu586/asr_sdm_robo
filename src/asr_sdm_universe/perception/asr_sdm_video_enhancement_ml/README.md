@@ -21,20 +21,19 @@ python3 /home/cortin/asr_sdm_robo/src/asr_sdm_tools/pth_to_onnx/export_five_aplu
 
 The checkpoint includes training-only `per_loss.*` weights. The export tool filters those keys before loading the network.
 
-## Build
+## Build and Run
 
 ```bash
+# Download onnxruntime form https://github.com/microsoft/onnxruntime/tags, check the version -xxx-xxx
+tar -xzvpf onnxruntime-linux-x64-xxx-xxx.tgz
+# Copy folder to $HOME/.local/onnxruntime/
+# Edit ~/.bashrc, add following
 source /opt/ros/jazzy/setup.bash
-export ONNXRUNTIME_ROOT=/home/cortin/.local/onnxruntime/current
-cd /home/cortin/ros2_ws
+export ONNXRUNTIME_ROOT="$HOME/.local/onnxruntime/onnxruntime-linux-x64-xxx-xxx"
+
+# Build and run
 colcon build --packages-select asr_sdm_video_enhancement_ml
-```
-
-## Run
-
-```bash
-source /opt/ros/jazzy/setup.bash
-source /home/cortin/ros2_ws/install/setup.bash
+source install/setup.bash
 ros2 launch asr_sdm_video_enhancement_ml asr_sdm_video_enhancement_ml.launch.py
 ```
 
