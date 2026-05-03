@@ -10,8 +10,24 @@ from launch_ros.actions import Node
 def generate_launch_description():
     package_share = get_package_share_directory("five_aplus_ros")
     default_model = os.path.join(package_share, "models", "five_aplus_epoch97.onnx")
-    onnxruntime_lib = "/home/cortin/.local/onnxruntime/current/lib"
-    ld_library_path = onnxruntime_lib + ":" + os.environ.get("LD_LIBRARY_PATH", "")
+    onnxruntime_root = os.environ.get("ONNXRUNTIME_ROOT")
+    if not onnxruntime_root:
+        raise RuntimeError(
+            "ONNXRUNTIME_ROOT must be set to the ONNX Runtime installation root."
+        )
+
+    onnxruntime_lib = os.path.join(onnxruntime_root, "lib")
+    if not os.path.isdir(onnxruntime_lib):
+        raise RuntimeError(
+            f"ONNX Runtime library directory does not exist: {onnxruntime_lib}"
+        )
+
+    existing_ld_library_path = os.environ.get("LD_LIBRARY_PATH", "")
+    ld_library_path = (
+        onnxruntime_lib
+        if not existing_ld_library_path
+        else onnxruntime_lib + ":" + existing_ld_library_path
+    )
 
     return LaunchDescription(
         [

@@ -14,7 +14,9 @@ find_package(sensor_msgs REQUIRED)
 
 set(ONNXRUNTIME_ROOT "$ENV{ONNXRUNTIME_ROOT}" CACHE PATH "Path to ONNX Runtime root")
 if(NOT ONNXRUNTIME_ROOT)
-  set(ONNXRUNTIME_ROOT "/home/cortin/.local/onnxruntime/current")
+  message(FATAL_ERROR
+    "ONNXRUNTIME_ROOT is not set. Please set the ONNXRUNTIME_ROOT environment variable "
+    "or pass -DONNXRUNTIME_ROOT=/path/to/onnxruntime to CMake.")
 endif()
 
 set(ONNXRUNTIME_INCLUDE_DIR "${ONNXRUNTIME_ROOT}/include")

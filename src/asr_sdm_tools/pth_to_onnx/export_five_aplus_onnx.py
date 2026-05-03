@@ -182,7 +182,14 @@ def normalize_output_tensor(img: torch.Tensor) -> torch.Tensor:
 
 
 def load_model(weights_path: Path) -> FIVE_APLUSNet:
-    checkpoint = torch.load(weights_path, map_location="cpu")
+    try:
+        checkpoint = torch.load(weights_path, map_location="cpu", weights_only=True)
+    except TypeError as exc:
+        raise RuntimeError(
+            "This tool requires a PyTorch version that supports safe checkpoint loading "
+            "via torch.load(..., weights_only=True). Refusing to load the checkpoint "
+            "with unsafe pickle deserialization."
+        ) from exc
     state_dict, removed = filter_network_state_dict(checkpoint)
     model = FIVE_APLUSNet().eval()
     missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False)

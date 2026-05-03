@@ -22,7 +22,7 @@ public:
 private:
   void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr msg);
   std::vector<float> imageToTensor(const cv::Mat & rgb_image) const;
-  cv::Mat tensorToBgrImage(float * output_data, const std::vector<int64_t> & shape) const;
+  cv::Mat tensorToBgrImage(const float * output_data, const std::vector<int64_t> & shape) const;
   void logStats(std::chrono::duration<double, std::milli> callback_ms,
     std::chrono::duration<double, std::milli> inference_ms);
 

@@ -150,22 +150,34 @@ std::vector<float> FiveAPlusNode::imageToTensor(const cv::Mat & rgb_image) const
 cv::Mat FiveAPlusNode::tensorToBgrImage(float * output_data, const std::vector<int64_t> & shape) const
 {
   if (shape.size() != 4 || shape[0] != 1 || shape[1] != 3 || shape[2] <= 0 || shape[3] <= 0) {
-    throw std::runtime_error("Unexpected ONNX output shape.");
+    RCLCPP_ERROR(
+      this->get_logger(),
+      "Unexpected ONNX output shape. Expected [1, 3, H, W] with positive H and W, got [%ld, %ld, %ld, %ld].",
+      shape.size() > 0 ? shape[0] : -1,
+      shape.size() > 1 ? shape[1] : -1,
+      shape.size() > 2 ? shape[2] : -1,
+      shape.size() > 3 ? shape[3] : -1);
+    return cv::Mat();
   }
   const int height = static_cast<int>(shape[2]);
   const int width = static_cast<int>(shape[3]);
   const size_t plane_size = static_cast<size_t>(height * width);
   const size_t tensor_size = 3 * plane_size;
 
-  float min_value = std::numeric_limits<float>::infinity();
-  float max_value = -std::numeric_limits<float>::infinity();
-  for (size_t i = 0; i < tensor_size; ++i) {
-    min_value = std::min(min_value, output_data[i]);
-    max_value = std::max(max_value, output_data[i]);
+  float min_value = 0.0F;
+  float max_value = 1.0F;
+  bool needs_normalize = false;
+  if (normalize_output_) {
+    min_value = std::numeric_limits<float>::infinity();
+    max_value = -std::numeric_limits<float>::infinity();
+    for (size_t i = 0; i < tensor_size; ++i) {
+      min_value = std::min(min_value, output_data[i]);
+      max_value = std::max(max_value, output_data[i]);
+    }
+    needs_normalize = (min_value < 0.0F || max_value > 1.0F);
   }
 
-  const bool needs_normalize = normalize_output_ && (min_value < 0.0F || max_value > 1.0F);
-  const float denom = max_value - min_value + 1e-7F;
+  const float denom = needs_normalize ? (max_value - min_value + 1e-7F) : 1.0F;
   cv::Mat bgr(height, width, CV_8UC3);
   for (int y = 0; y < height; ++y) {
     auto * row = bgr.ptr<cv::Vec3b>(y);
