@@ -43,3 +43,9 @@
     imu_temporal_window_length_sec: 0.5
     stationary_acc_sigma_thresh: 0.0
     stationary_gyr_sigma_thresh: 0.0
+
+    # === IMU VIO prior weights for SparseImgAlign ===
+    # lambda_rot=0.5: moderate IMU pull on rotation (rpg/vio_mono.yaml default)
+    # lambda_trans=0.0: pure visual translation (recommended for monocular)
+    img_align_prior_lambda_rot: 0.5
+    img_align_prior_lambda_trans: 0.0

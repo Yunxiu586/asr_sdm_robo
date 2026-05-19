@@ -257,10 +257,30 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   }
 
   // === Stage 1: Sparse Image Alignment ===
-  // Direct method: minimize photometric error between frames
+  // Direct method: minimize photometric error between frames.
+  // Optionally inject IMU rotation as a weighted information-matrix prior.
   SVO_START_TIMER("sparse_img_align");
   SparseImgAlign img_align(Config::kltMaxLevel(), Config::kltMinLevel(),
                            30, SparseImgAlign::GaussNewton, false, false);
+
+  // Compute IMU motion prior and inject as weighted prior into SparseImgAlign.
+  // On each Gauss-Newton iteration, applyPrior() adds:
+  //   H += λ_rot * H_max_rot * I_3  (rotation block)
+  //   g += λ_rot * H_max_rot * log(R_prior^-1 * R_current)
+  // λ_rot = 0.5 follows rpg/vio_mono.yaml; translation prior stays 0 (pure visual).
+  // The scale-adaptive weighting releases control when visual features are strong.
+  if (use_imu_ && imu_handler_ != nullptr && last_frame_ != nullptr &&
+      last_imu_timestamp_ > 0.0)
+  {
+    getMotionPrior();
+    if (have_motion_prior_)
+    {
+      img_align.setWeightedPrior(T_newimu_lastimu_prior_,
+                                 img_align_prior_lambda_rot_,
+                                 img_align_prior_lambda_trans_);
+    }
+  }
+
   size_t img_align_n_tracked = img_align.run(last_frame_, new_frame_);
   SVO_STOP_TIMER("sparse_img_align");
   SVO_LOG(img_align_n_tracked);
@@ -544,4 +564,46 @@ void FrameHandlerMono::setCoreKfs(size_t n_closest)
   std::for_each(overlap_kfs_.begin(), overlap_kfs_.end(), [&](pair<FramePtr,size_t>& i){ core_kfs_.insert(i.first); });
 }
 
-} // namespace svo
+/**
+ * @brief Computes IMU motion prior between last and new frame.
+ *
+ * Three-tier fallback:
+ * 1. IMU gyro integration → integrate biased gyroscope data between frames
+ *    Gets R_imu_delta = exp(ω_corrected * dt) for each IMU measurement interval.
+ * 2. Constant velocity (when lambda > 0) → T = Identity, have_motion_prior_ = true
+ * 3. No prior available → have_motion_prior_ = false
+ *
+ * Populates T_newimu_lastimu_prior_ (SE3: rotation from last IMU to new IMU frame).
+ * Translation is set to zero since monocular IMU has no metric scale.
+ */
+void FrameHandlerMono::getMotionPrior()
+{
+  if (use_imu_ && imu_handler_ != nullptr && last_frame_ != nullptr &&
+      last_imu_timestamp_ > 0.0)
+  {
+    Eigen::Quaterniond R_imu_delta;
+    if (imu_handler_->getPoseIncrement(last_imu_timestamp_,
+                                      new_frame_->timestamp_, R_imu_delta))
+    {
+      // R_imu_delta: rotation from last IMU to new IMU frame.
+      // For SparseImgAlign prior: T_newimu_lastimu_prior_ = exp(R_imu_delta), t=0
+      // (inverse of what we need for initial pose, but correct for prior).
+      T_newimu_lastimu_prior_ = Sophus::SE3d(
+          Sophus::SO3d(R_imu_delta.conjugate().toRotationMatrix()),
+          Eigen::Vector3d::Zero());
+      have_motion_prior_ = true;
+      return;
+    }
+  }
+
+  // Tier 2: Constant velocity assumption (triggered when lambda > 0)
+  if (img_align_prior_lambda_rot_ > 0.0 || img_align_prior_lambda_trans_ > 0.0)
+  {
+    T_newimu_lastimu_prior_ = Sophus::SE3d();  // Identity
+    have_motion_prior_ = true;
+    return;
+  }
+
+  // Tier 3: No prior
+  have_motion_prior_ = false;
+}

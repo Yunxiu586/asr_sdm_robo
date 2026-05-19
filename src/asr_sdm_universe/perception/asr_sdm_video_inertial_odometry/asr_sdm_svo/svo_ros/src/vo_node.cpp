@@ -220,7 +220,8 @@ VoNode::VoNode()
   use_imu_ = vk::getParam<bool>(this, "use_imu", false);
   if (use_imu_)
   {
-    RCLCPP_INFO(this->get_logger(), "IMU data collection: ENABLED (rotation prior is permanently disabled)");
+    RCLCPP_INFO(this->get_logger(), "IMU: ENABLED with IMU-prior VIO (SparseImgAlign weighted prior)");
+
 
     imu_calib_.delay_imu_cam = vk::getParam<double>(this, "imu_delay_imu_cam", 0.0);
     imu_calib_.max_imu_delta_t = vk::getParam<double>(this, "imu_max_imu_delta_t", 0.1);
@@ -281,6 +282,13 @@ VoNode::VoNode()
   {
     vo_->setImuHandler(imu_handler_.get());
     vo_->setImuCalibrator(imu_handler_->calibrator());
+    vo_->setImgAlignPriorLambda(
+        vk::getParam<double>(this, "img_align_prior_lambda_rot", 0.5),
+        vk::getParam<double>(this, "img_align_prior_lambda_trans", 0.0));
+    RCLCPP_INFO(this->get_logger(),
+                "IMU prior λ_rot=%.2f λ_trans=%.2f",
+                vk::getParam<double>(this, "img_align_prior_lambda_rot", 0.5),
+                vk::getParam<double>(this, "img_align_prior_lambda_trans", 0.0));
   }
   vo_->start();
 }

@@ -65,6 +65,14 @@ public:
   /// Set IMU online calibrator for visual-guided IMU preprocessing.
   void setImuCalibrator(ImuOnlineCalibrator* calib) { imu_calibrator_ = calib; }
 
+  /// Set IMU prior weights for SparseImgAlign.
+  /// Follows rpg/vio_mono.yaml convention: lambda_rot=0.5, lambda_trans=0.0.
+  void setImgAlignPriorLambda(double lambda_rot, double lambda_trans)
+  {
+    img_align_prior_lambda_rot_ = lambda_rot;
+    img_align_prior_lambda_trans_ = lambda_trans;
+  }
+
 protected:
   vk::AbstractCamera * cam_;     //!< Camera model, can be ATAN, Pinhole or Ocam (see vikit).
   Reprojector reprojector_;      //!< Projects points from other keyframes into the current frame
@@ -80,8 +88,8 @@ protected:
   DepthFilter * depth_filter_;  //!< Depth estimation algorithm runs in a parallel thread and is
                                //!< used to initialize new 3D points.
 
-  // IMU: inter-frame pose prediction (NO rotation prior)
-  bool use_imu_ = false;              //!< Whether IMU data is available for prediction
+  // IMU: inter-frame pose prediction + IMU prior for SparseImgAlign
+  bool use_imu_ = false;              //!< Whether IMU data is available
   ImuHandler* imu_handler_ = nullptr;  //!< IMU handler for inter-frame integration
   ImuOnlineCalibrator* imu_calibrator_ = nullptr;  //!< IMU online calibrator
   double last_imu_timestamp_ = 0.0;     //!< Last IMU timestamp for inter-frame integration
@@ -112,6 +120,9 @@ protected:
   virtual bool needNewKf(double scene_depth_mean);
 
   void setCoreKfs(size_t n_closest);
+
+  /// Compute IMU motion prior via gyro integration (overrides base class).
+  virtual void getMotionPrior() override;
 };
 
 }  

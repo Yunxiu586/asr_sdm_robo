@@ -81,6 +81,18 @@ def generate_launch_description():
         description='IMU ROS 2 topic name'
     )
 
+    img_align_prior_lambda_rot_arg = DeclareLaunchArgument(
+        'img_align_prior_lambda_rot',
+        default_value='0.5',
+        description='IMU rotation prior weight in SparseImgAlign (0.5 = rpg/vio_mono.yaml)'
+    )
+
+    img_align_prior_lambda_trans_arg = DeclareLaunchArgument(
+        'img_align_prior_lambda_trans',
+        default_value='0.0',
+        description='IMU translation prior weight in SparseImgAlign (0 = pure visual)'
+    )
+
     imu_preprocessing_mode_arg = DeclareLaunchArgument(
         'imu_preprocessing_mode',
         default_value='0',
@@ -126,6 +138,12 @@ def generate_launch_description():
                 'imu_topic': LaunchConfiguration('imu_topic'),
                 'imu_preprocessing_mode': LaunchConfiguration('imu_preprocessing_mode'),
                 'imu_calib_file': imu_calib_yaml_path,
+
+                # IMU VIO prior weights for SparseImgAlign
+                # lambda_rot=0.5: moderate IMU pull on rotation (rpg/vio_mono.yaml default)
+                # lambda_trans=0.0: pure visual translation (recommended for monocular)
+                'img_align_prior_lambda_rot': LaunchConfiguration('img_align_prior_lambda_rot'),
+                'img_align_prior_lambda_trans': LaunchConfiguration('img_align_prior_lambda_trans'),
             },
         ],
     )
@@ -192,6 +210,8 @@ def generate_launch_description():
         use_imu_arg,
         imu_topic_arg,
         imu_preprocessing_mode_arg,
+        img_align_prior_lambda_rot_arg,
+        img_align_prior_lambda_trans_arg,
         env_libgl,
         env_gallium,
         env_gl_version,
