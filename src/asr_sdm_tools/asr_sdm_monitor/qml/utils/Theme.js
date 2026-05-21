@@ -14,6 +14,12 @@ function palette(themeMode) {
         rowAlternateBackground: "#252526",
         border: "#3c3c3c",
         chartGrid: "#404040",
+        chartSeriesColors: [
+            "#3794ff", "#4ec9b0", "#f2cc60", "#c586c0",
+            "#ce9178", "#b5cea8", "#9cdcfe", "#d7ba7d",
+            "#ff8c00", "#f44747", "#9cdcfe", "#569cd6",
+            "#d16969", "#00b7c3", "#b267e6", "#86c232"
+        ],
         textPrimary: "#d4d4d4",
         textSecondary: "#9da5b4",
         accent: "#0e639c",
@@ -40,6 +46,12 @@ function palette(themeMode) {
         rowAlternateBackground: "#fbfdff",
         border: "#dbe4ef",
         chartGrid: "#e8eef6",
+        chartSeriesColors: [
+            "#2a6df4", "#009688", "#e69500", "#8e44ad",
+            "#d14b4b", "#2e7d32", "#0078a8", "#6d4c41",
+            "#ef6c00", "#c2185b", "#455a64", "#5d7b00",
+            "#3949ab", "#00897b", "#ad1457", "#827717"
+        ],
         textPrimary: "#1e2b3a",
         textSecondary: "#607285",
         accent: "#2a6df4",

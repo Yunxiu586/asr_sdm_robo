@@ -10,7 +10,9 @@ find_package(rclcpp REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(rosbag2_cpp REQUIRED)
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2)
+
 
 qt_standard_project_setup()
 
@@ -27,6 +29,7 @@ qt_add_resources(${PROJECT_NAME} "qml_resources"
   FILES
     qml/Main.qml
     qml/components/SelectableButton.qml
+    qml/components/ActionButton.qml
     qml/components/TopControlBar.qml
     qml/components/SidebarMenu.qml
     qml/components/HardwareTabBar.qml
@@ -34,8 +37,10 @@ qt_add_resources(${PROJECT_NAME} "qml_resources"
     qml/components/SectionTitle.qml
     qml/components/SimpleTable.qml
     qml/components/AreaLineChart.qml
+    qml/components/PlotCanvas.qml
     qml/pages/HardwarePage.qml
     qml/pages/VideoPage.qml
+    qml/pages/PlotPage.qml
     qml/pages/hardware/CpuPage.qml
     qml/pages/hardware/MemoryPage.qml
     qml/pages/hardware/HddPage.qml
@@ -48,6 +53,7 @@ qt_add_resources(${PROJECT_NAME} "qml_resources"
 
 target_include_directories(${PROJECT_NAME} PRIVATE
   include
+  ${rosbag2_cpp_INCLUDE_DIRS}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -60,7 +66,14 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   ${diagnostic_msgs_TARGETS}
   ${sensor_msgs_TARGETS}
   ${std_msgs_TARGETS}
+  ${rosbag2_cpp_TARGETS}
+  ${rosbag2_cpp_LIBRARIES}
 )
+
+if(TARGET rosbag2_cpp::rosbag2_cpp)
+  target_link_libraries(${PROJECT_NAME} PRIVATE rosbag2_cpp::rosbag2_cpp)
+endif()
+
 
 install(TARGETS ${PROJECT_NAME}
   RUNTIME DESTINATION lib/${PROJECT_NAME}
