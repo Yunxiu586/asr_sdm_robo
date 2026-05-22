@@ -20,6 +20,29 @@ Rectangle {
     property double playbackCurrentTimeMs: 0
     property double playbackStartTimeMs: 0
     property bool showPlaybackMarker: false
+    property string viewKey: ""
+
+    property bool manualView: false
+    property double viewMinX: 0
+    property double viewMaxX: 1
+    property double viewMinY: 0
+    property double viewMaxY: 1
+    property double viewXSpan: 1
+    property double viewXCenterOffset: 0
+    property double autoMinX: 0
+    property double autoMaxX: 1
+    property double autoMinY: 0
+    property double autoMaxY: 1
+    property double chartLeft: 0
+    property double chartRight: 0
+    property double chartTop: 0
+    property double chartBottom: 0
+    property double panStartMouseX: 0
+    property double panStartMouseY: 0
+    property double panStartMinX: 0
+    property double panStartMaxX: 1
+    property double panStartMinY: 0
+    property double panStartMaxY: 1
 
     radius: 12
     color: appPalette.surfaceBackground
@@ -30,6 +53,10 @@ Rectangle {
     function isFiniteNumber(value) {
         const n = Number(value)
         return isFinite(n)
+    }
+
+    function validRange(minValue, maxValue) {
+        return isFinite(minValue) && isFinite(maxValue) && Math.abs(maxValue - minValue) > 1e-12
     }
 
     function paddedRange(minValue, maxValue) {
@@ -129,10 +156,154 @@ Rectangle {
         return (seriesItem && Number(seriesItem.lineWidth) > 0) ? Number(seriesItem.lineWidth) : 1.0
     }
 
+    function clamp01(value) {
+        return Math.max(0.0, Math.min(1.0, value))
+    }
+
+    function hasManualView() {
+        return root.manualView
+               && validRange(root.viewMinX, root.viewMaxX)
+               && validRange(root.viewMinY, root.viewMaxY)
+    }
+
+    function effectiveManualRange() {
+        if (!hasManualView())
+            return null
+
+        let minX = root.viewMinX
+        let maxX = root.viewMaxX
+
+        if (root.plotMode === "time"
+                && validRange(root.autoMinX, root.autoMaxX)
+                && isFinite(root.viewXSpan)
+                && root.viewXSpan > 1e-12
+                && isFinite(root.viewXCenterOffset)) {
+            const autoCenterX = (root.autoMinX + root.autoMaxX) / 2.0
+            const centerX = autoCenterX + root.viewXCenterOffset
+            minX = centerX - root.viewXSpan / 2.0
+            maxX = centerX + root.viewXSpan / 2.0
+        }
+
+        if (!validRange(minX, maxX) || !validRange(root.viewMinY, root.viewMaxY))
+            return null
+
+        return {
+            minX: minX,
+            maxX: maxX,
+            minY: root.viewMinY,
+            maxY: root.viewMaxY
+        }
+    }
+
+    function currentViewRange() {
+        const manualRange = effectiveManualRange()
+        if (manualRange)
+            return manualRange
+
+        if (!validRange(root.autoMinX, root.autoMaxX) || !validRange(root.autoMinY, root.autoMaxY))
+            return null
+
+        return {
+            minX: root.autoMinX,
+            maxX: root.autoMaxX,
+            minY: root.autoMinY,
+            maxY: root.autoMaxY
+        }
+    }
+
+    function setManualRange(minX, maxX, minY, maxY) {
+        if (!validRange(minX, maxX) || !validRange(minY, maxY))
+            return
+        root.manualView = true
+        root.viewMinX = minX
+        root.viewMaxX = maxX
+        root.viewMinY = minY
+        root.viewMaxY = maxY
+        if (root.plotMode === "time" && validRange(root.autoMinX, root.autoMaxX)) {
+            root.viewXSpan = maxX - minX
+            root.viewXCenterOffset = (minX + maxX) / 2.0 - (root.autoMinX + root.autoMaxX) / 2.0
+        }
+        canvas.requestPaint()
+    }
+
+    function resetView() {
+        root.manualView = false
+        canvas.requestPaint()
+    }
+
+    function pointInsideChart(mouseX, mouseY) {
+        return root.chartRight > root.chartLeft
+               && root.chartBottom > root.chartTop
+               && mouseX >= root.chartLeft
+               && mouseX <= root.chartRight
+               && mouseY >= root.chartTop
+               && mouseY <= root.chartBottom
+    }
+
+    function zoomAt(mouseX, mouseY, deltaY) {
+        if (deltaY === 0 || root.chartRight <= root.chartLeft || root.chartBottom <= root.chartTop)
+            return
+
+        const range = currentViewRange()
+        if (!range)
+            return
+
+        const chartW = Math.max(1e-12, root.chartRight - root.chartLeft)
+        const chartH = Math.max(1e-12, root.chartBottom - root.chartTop)
+        const tx = clamp01((mouseX - root.chartLeft) / chartW)
+        const ty = clamp01((root.chartBottom - mouseY) / chartH)
+        const anchorX = range.minX + (range.maxX - range.minX) * tx
+        const anchorY = range.minY + (range.maxY - range.minY) * ty
+        const factor = deltaY > 0 ? 0.82 : 1.22
+
+        const nextMinX = anchorX - (anchorX - range.minX) * factor
+        const nextMaxX = anchorX + (range.maxX - anchorX) * factor
+        const nextMinY = anchorY - (anchorY - range.minY) * factor
+        const nextMaxY = anchorY + (range.maxY - anchorY) * factor
+        setManualRange(nextMinX, nextMaxX, nextMinY, nextMaxY)
+    }
+
+    function startPan(mouseX, mouseY) {
+        if (!pointInsideChart(mouseX, mouseY))
+            return false
+
+        const range = currentViewRange()
+        if (!range)
+            return false
+
+        root.panStartMouseX = mouseX
+        root.panStartMouseY = mouseY
+        root.panStartMinX = range.minX
+        root.panStartMaxX = range.maxX
+        root.panStartMinY = range.minY
+        root.panStartMaxY = range.maxY
+        return true
+    }
+
+    function updatePan(mouseX, mouseY) {
+        if (root.chartRight <= root.chartLeft || root.chartBottom <= root.chartTop)
+            return
+
+        const chartW = Math.max(1e-12, root.chartRight - root.chartLeft)
+        const chartH = Math.max(1e-12, root.chartBottom - root.chartTop)
+        const rangeX = root.panStartMaxX - root.panStartMinX
+        const rangeY = root.panStartMaxY - root.panStartMinY
+        const dx = mouseX - root.panStartMouseX
+        const dy = mouseY - root.panStartMouseY
+        const offsetX = -dx / chartW * rangeX
+        const offsetY = dy / chartH * rangeY
+
+        setManualRange(root.panStartMinX + offsetX,
+                       root.panStartMaxX + offsetX,
+                       root.panStartMinY + offsetY,
+                       root.panStartMaxY + offsetY)
+    }
+
     Canvas {
         id: canvas
         anchors.fill: parent
         anchors.margins: Math.max(10, Math.min(22, Math.min(root.width, root.height) * 0.04))
+        z: 0
 
         onPaint: {
             const ctx = getContext("2d")
@@ -140,8 +311,13 @@ Rectangle {
 
             const selectedSeries = normalizedSeries()
             const source = root.samples || []
-            if (selectedSeries.length === 0 || source.length === 0)
+            if (selectedSeries.length === 0 || source.length === 0) {
+                root.chartLeft = 0
+                root.chartRight = 0
+                root.chartTop = 0
+                root.chartBottom = 0
                 return
+            }
 
             const series = []
             let minX = Number.POSITIVE_INFINITY
@@ -171,8 +347,13 @@ Rectangle {
                     series.push({ field: fieldPath, points: points, color: seriesConfig.color, lineWidth: seriesConfig.lineWidth })
             }
 
-            if (series.length === 0 || !isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY))
+            if (series.length === 0 || !isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) {
+                root.chartLeft = 0
+                root.chartRight = 0
+                root.chartTop = 0
+                root.chartBottom = 0
                 return
+            }
 
             const w = width
             const h = height
@@ -228,6 +409,23 @@ Rectangle {
                 maxX = xCenter + halfRange
                 minY = yCenter - halfRange
                 maxY = yCenter + halfRange
+            }
+
+            root.autoMinX = minX
+            root.autoMaxX = maxX
+            root.autoMinY = minY
+            root.autoMaxY = maxY
+            root.chartLeft = left
+            root.chartRight = right
+            root.chartTop = top
+            root.chartBottom = bottom
+
+            const manualRange = effectiveManualRange()
+            if (manualRange) {
+                minX = manualRange.minX
+                maxX = manualRange.maxX
+                minY = manualRange.minY
+                maxY = manualRange.maxY
             }
 
             function px(x) {
@@ -308,6 +506,11 @@ Rectangle {
                 }
             }
 
+            ctx.save()
+            ctx.beginPath()
+            ctx.rect(left, top, chartW, chartH)
+            ctx.clip()
+
             for (let seriesIndex = 0; seriesIndex < series.length; ++seriesIndex) {
                 const line = series[seriesIndex]
                 ctx.strokeStyle = seriesColor(line, seriesIndex)
@@ -333,6 +536,8 @@ Rectangle {
                     }
                 }
             }
+
+            ctx.restore()
 
             ctx.fillStyle = root.appPalette.textSecondary
             ctx.font = "13px sans-serif"
@@ -360,19 +565,92 @@ Rectangle {
         onHeightChanged: requestPaint()
     }
 
+    MouseArea {
+        id: chartMouseArea
+        anchors.fill: canvas
+        z: 2
+        acceptedButtons: Qt.LeftButton
+        hoverEnabled: true
+        preventStealing: true
+        cursorShape: dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+        property bool dragging: false
+
+        onPressed: function(mouse) {
+            if (mouse.button === Qt.LeftButton && root.startPan(mouse.x, mouse.y)) {
+                dragging = true
+                mouse.accepted = true
+            } else {
+                mouse.accepted = false
+            }
+        }
+
+        onPositionChanged: function(mouse) {
+            if (!dragging)
+                return
+            root.updatePan(mouse.x, mouse.y)
+        }
+
+        onReleased: function(mouse) {
+            dragging = false
+        }
+
+        onCanceled: {
+            dragging = false
+        }
+
+        onWheel: function(wheel) {
+            const delta = wheel.angleDelta.y !== 0 ? wheel.angleDelta.y : wheel.pixelDelta.y
+            root.zoomAt(wheel.x, wheel.y, delta)
+            wheel.accepted = true
+        }
+    }
+
+    Rectangle {
+        id: resetButton
+        width: 64
+        height: 28
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.topMargin: 10
+        anchors.rightMargin: 12
+        radius: 8
+        z: 3
+        color: resetMouse.containsMouse ? root.appPalette.accent : root.appPalette.elevatedBackground
+        border.color: resetMouse.containsMouse ? root.appPalette.accentBorder : root.appPalette.controlBorder
+        border.width: 1
+        opacity: root.manualView ? 1.0 : 0.78
+
+        Text {
+            anchors.centerIn: parent
+            text: "Reset"
+            font.pixelSize: 12
+            font.bold: true
+            color: resetMouse.containsMouse ? root.appPalette.accentText : root.appPalette.textSecondary
+        }
+
+        MouseArea {
+            id: resetMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.resetView()
+        }
+    }
+
     onSamplesChanged: canvas.requestPaint()
-    onPlotModeChanged: canvas.requestPaint()
-    onTimestampModeChanged: canvas.requestPaint()
-    onXFieldChanged: canvas.requestPaint()
+    onPlotModeChanged: resetView()
+    onTimestampModeChanged: resetView()
+    onXFieldChanged: resetView()
     onYFieldsChanged: canvas.requestPaint()
     onSeriesOptionsChanged: canvas.requestPaint()
     onFieldOptionsChanged: canvas.requestPaint()
     onXLabelChanged: canvas.requestPaint()
-    onAxisScaleModeChanged: canvas.requestPaint()
+    onAxisScaleModeChanged: resetView()
     onShowXAxisTickLabelsChanged: canvas.requestPaint()
     onShowYAxisTickLabelsChanged: canvas.requestPaint()
     onPlaybackCurrentTimeMsChanged: canvas.requestPaint()
     onPlaybackStartTimeMsChanged: canvas.requestPaint()
     onShowPlaybackMarkerChanged: canvas.requestPaint()
     onAppPaletteChanged: canvas.requestPaint()
+    onViewKeyChanged: resetView()
 }

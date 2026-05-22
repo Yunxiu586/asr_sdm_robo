@@ -1281,6 +1281,7 @@ Item {
                     playbackCurrentTimeMs: RosUi.playbackCurrentTimeMs
                     playbackStartTimeMs: RosUi.playbackStartTimeMs
                     showPlaybackMarker: root.dataSource === "recorded"
+                    viewKey: root.dataSource
                 }
 
                 Rectangle {
@@ -1304,7 +1305,7 @@ Item {
                             selected: RosUi.playbackPlaying
                             appPalette: root.appPalette
                             labelPixelSize: root.baseFontSize
-                            onClicked: RosUi.setPlaybackPlaying(!RosUi.playbackPlaying)
+                            onClicked: root.openAndPlayRecorded()
                         }
 
                         Text {
