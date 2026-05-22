@@ -2,6 +2,8 @@
 
 #include <QObject>
 #include <QImage>
+#include <QFile>
+#include <QTimer>
 #include <QMap>
 #include <QString>
 #include <QStringList>
@@ -18,7 +20,9 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
 #include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 #include <std_msgs/msg/string.hpp>
+#include <rosbag2_cpp/writer.hpp>
 
 class RosUiBridge : public QObject
 {
@@ -59,6 +63,23 @@ class RosUiBridge : public QObject
     Q_PROPERTY(int videoFrame1Revision READ videoFrame1Revision NOTIFY videoSlot1Changed)
     Q_PROPERTY(int videoFrame2Revision READ videoFrame2Revision NOTIFY videoSlot2Changed)
     Q_PROPERTY(int videoFrame3Revision READ videoFrame3Revision NOTIFY videoSlot3Changed)
+
+    Q_PROPERTY(QVariantList plotFieldOptions READ plotFieldOptions NOTIFY plotFieldOptionsChanged)
+    Q_PROPERTY(QVariantList imuPlotSamples READ imuPlotSamples NOTIFY imuPlotSamplesChanged)
+    Q_PROPERTY(QString plotStatus READ plotStatus NOTIFY plotStatusChanged)
+
+    Q_PROPERTY(QString plotDataSource READ plotDataSource WRITE setPlotDataSource NOTIFY plotDataSourceChanged)
+    Q_PROPERTY(QVariantList recordedPlotFieldOptions READ recordedPlotFieldOptions NOTIFY recordedPlotFieldOptionsChanged)
+    Q_PROPERTY(QVariantList recordedPlotSamples READ recordedPlotSamples NOTIFY recordedPlotSamplesChanged)
+    Q_PROPERTY(bool plotRecording READ plotRecording NOTIFY plotRecordingChanged)
+    Q_PROPERTY(QString plotRecordingPath READ plotRecordingPath NOTIFY plotRecordingChanged)
+    Q_PROPERTY(QString recordedFilePath READ recordedFilePath NOTIFY recordedPlaybackChanged)
+    Q_PROPERTY(QString recordedStatus READ recordedStatus NOTIFY recordedPlaybackChanged)
+    Q_PROPERTY(double playbackStartTimeMs READ playbackStartTimeMs NOTIFY recordedPlaybackChanged)
+    Q_PROPERTY(double playbackEndTimeMs READ playbackEndTimeMs NOTIFY recordedPlaybackChanged)
+    Q_PROPERTY(double playbackCurrentTimeMs READ playbackCurrentTimeMs NOTIFY playbackCurrentTimeMsChanged)
+    Q_PROPERTY(double playbackSpeed READ playbackSpeed NOTIFY playbackSpeedChanged)
+    Q_PROPERTY(bool playbackPlaying READ playbackPlaying NOTIFY playbackPlayingChanged)
 
 public:
     explicit RosUiBridge(QObject *parent = nullptr);
@@ -101,7 +122,34 @@ public:
     int videoFrame3Revision() const;
     QImage videoFrameImage(int slotIndex) const;
 
+    QVariantList plotFieldOptions() const;
+    QVariantList imuPlotSamples() const;
+    QString plotStatus() const;
+
+    QString plotDataSource() const;
+    QVariantList recordedPlotFieldOptions() const;
+    QVariantList recordedPlotSamples() const;
+    bool plotRecording() const;
+    QString plotRecordingPath() const;
+    QString recordedFilePath() const;
+    QString recordedStatus() const;
+    double playbackStartTimeMs() const;
+    double playbackEndTimeMs() const;
+    double playbackCurrentTimeMs() const;
+    double playbackSpeed() const;
+    bool playbackPlaying() const;
+
     Q_INVOKABLE void setVideoTopic(int slotIndex, const QString &topicName);
+    Q_INVOKABLE void setPlotDataSource(const QString &dataSource);
+    Q_INVOKABLE QString defaultPlotRecordingPath() const;
+    Q_INVOKABLE bool startPlotRecording(const QString &filePath);
+    Q_INVOKABLE void stopPlotRecording();
+    Q_INVOKABLE bool openRecordedPlotFile(const QString &filePath);
+    Q_INVOKABLE void setPlaybackStartTimeMs(double startTimeMs);
+    Q_INVOKABLE void setPlaybackEndTimeMs(double endTimeMs);
+    Q_INVOKABLE void setPlaybackCurrentTimeMs(double currentTimeMs);
+    Q_INVOKABLE void setPlaybackSpeed(double speed);
+    Q_INVOKABLE void setPlaybackPlaying(bool playing);
 
 signals:
     void rosStatusChanged();
@@ -132,6 +180,19 @@ signals:
     void videoSlot2Changed();
     void videoSlot3Changed();
 
+    void imuPlotSamplesChanged();
+    void plotFieldOptionsChanged();
+    void plotStatusChanged();
+
+    void plotDataSourceChanged();
+    void recordedPlotFieldOptionsChanged();
+    void recordedPlotSamplesChanged();
+    void plotRecordingChanged();
+    void recordedPlaybackChanged();
+    void playbackCurrentTimeMsChanged();
+    void playbackSpeedChanged();
+    void playbackPlayingChanged();
+
 private:
     void diagnosticsCallback(const diagnostic_msgs::msg::DiagnosticArray::SharedPtr msg);
 
@@ -159,6 +220,18 @@ private:
     void updateVideoFrame(int slotIndex, const QImage &image, const QString &status);
     void updateVideoStatus(int slotIndex, const QString &status);
     void emitVideoSlotChanged(int slotIndex);
+
+    void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
+    static QVariantList defaultPlotFieldOptions();
+    static QVariantList plotFieldOptionsForPaths(const QStringList &paths);
+    void activatePublishedPlotFields(const QVariantMap &sample);
+    static QString plotTopicPath(const QString &fieldName);
+    static QVariantMap sampleFromImu(const sensor_msgs::msg::Imu &msg, double fallbackAbsoluteTimeMs = -1.0);
+    void writePlotRecordingSample(const sensor_msgs::msg::Imu &msg);
+    static QString normalizeLocalPath(const QString &filePath);
+    bool loadRecordedRosbag(const QString &filePath);
+    void updateRecordedPlaybackBounds();
+    void playbackTick();
 
     static bool isPerceptionImageTopic(const QString &topicName, const QString &topicType);
     static QImage imageMessageToQImage(const sensor_msgs::msg::Image &msg, QString *errorMessage);
@@ -201,8 +274,35 @@ private:
     std::array<VideoSlot, 4> video_slots_;
     mutable std::mutex video_frame_mutex_;
 
+    QVariantList plot_field_options_;
+    QStringList active_plot_field_paths_;
+    QVariantList imu_plot_samples_;
+    QString plot_status_ = QStringLiteral("Waiting for /camera/camera/imu ...");
+    double plot_start_time_ = -1.0;
+
+    QString plot_data_source_ = QStringLiteral("live");
+    QVariantList recorded_plot_field_options_;
+    QVariantList recorded_plot_samples_;
+    QString recorded_file_path_;
+    QString recorded_status_ = QStringLiteral("No recorded file loaded");
+    bool plot_recording_ = false;
+    QString plot_recording_path_;
+    std::unique_ptr<rosbag2_cpp::Writer> plot_bag_writer_;
+    std::mutex plot_recording_mutex_;
+    size_t plot_recorded_message_count_ = 0;
+    double recorded_bag_start_time_ms_ = 0.0;
+    double recorded_bag_end_time_ms_ = 0.0;
+    double playback_start_time_ms_ = 0.0;
+    double playback_end_time_ms_ = 0.0;
+    double playback_current_time_ms_ = 0.0;
+    double playback_speed_ = 1.0;
+    bool playback_playing_ = false;
+    QTimer *playback_timer_ = nullptr;
+    std::chrono::steady_clock::time_point playback_last_tick_;
+
     rclcpp::Node::SharedPtr node_;
     rclcpp::Subscription<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_sub_;
+    rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr video_topics_sub_;
     rclcpp::TimerBase::SharedPtr video_topic_discovery_timer_;
     std::array<rclcpp::Subscription<std_msgs::msg::String>::SharedPtr, 4> video_status_subs_;

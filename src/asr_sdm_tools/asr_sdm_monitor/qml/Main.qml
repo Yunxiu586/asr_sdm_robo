@@ -24,6 +24,7 @@ ApplicationWindow {
     property string currentLanguage: "en"
     property int currentSection: 0
     property int currentHardwareTab: 0
+    property bool sidebarCollapsed: false
     readonly property var appPalette: Theme.palette(currentThemeMode)
 
     color: appPalette.windowBackground
@@ -251,17 +252,21 @@ ApplicationWindow {
             spacing: 0
 
             SidebarMenu {
-                Layout.minimumWidth: 96
-                Layout.preferredWidth: Math.max(120, Math.min(240, window.width * 0.16))
-                Layout.maximumWidth: 240
+                Layout.minimumWidth: window.sidebarCollapsed ? 54 : 96
+                Layout.preferredWidth: window.sidebarCollapsed ? 58 : Math.max(120, Math.min(240, window.width * 0.16))
+                Layout.maximumWidth: window.sidebarCollapsed ? 64 : 240
                 Layout.fillHeight: true
                 appPalette: window.appPalette
                 language: window.currentLanguage
                 currentSection: window.currentSection
+                collapsed: window.sidebarCollapsed
                 rosStatus: RosUi.rosStatus
                 onSectionSelected: function(index) {
-		    window.currentSection = index
-		}
+                    window.currentSection = index
+                }
+                onCollapseToggled: {
+                    window.sidebarCollapsed = !window.sidebarCollapsed
+                }
             }
 
             Rectangle {
@@ -286,6 +291,11 @@ ApplicationWindow {
                     }
 
                     VideoPage {
+                        appPalette: window.appPalette
+                        language: window.currentLanguage
+                    }
+
+                    PlotPage {
                         appPalette: window.appPalette
                         language: window.currentLanguage
                     }

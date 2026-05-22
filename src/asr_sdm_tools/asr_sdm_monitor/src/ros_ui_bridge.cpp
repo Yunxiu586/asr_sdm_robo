@@ -5,27 +5,44 @@
 #include <QJsonObject>
 #include <QMetaObject>
 #include <QStringList>
+#include <QDateTime>
+#include <QDir>
+#include <QFileInfo>
+#include <QUrl>
 #include <Qt>
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <map>
 #include <numeric>
 #include <regex>
 #include <sstream>
+#include <string>
 #include <vector>
+
+#include <rclcpp/serialization.hpp>
+#include <rclcpp/serialized_message.hpp>
+#include <rosbag2_cpp/reader.hpp>
+#include <rosbag2_cpp/writer.hpp>
 
 namespace
 {
 constexpr int kVideoSlotCount = 4;
 constexpr const char *kImageType = "sensor_msgs/msg/Image";
 constexpr const char *kCompressedImageType = "sensor_msgs/msg/CompressedImage";
+constexpr int kMaxPlotSamples = 600;
+constexpr const char *kImuTopic = "/camera/camera/imu";
 }
 
 RosUiBridge::RosUiBridge(QObject *parent)
     : QObject(parent),
       ros_status_("Waiting for /diagnostics and /perception image topics ...")
 {
+    playback_timer_ = new QTimer(this);
+    playback_timer_->setInterval(33);
+    connect(playback_timer_, &QTimer::timeout, this, &RosUiBridge::playbackTick);
+
     node_ = std::make_shared<rclcpp::Node>("diagnostics_qml_ui_node");
 
     diagnostics_sub_ = node_->create_subscription<diagnostic_msgs::msg::DiagnosticArray>(
@@ -33,6 +50,13 @@ RosUiBridge::RosUiBridge(QObject *parent)
         [this](const diagnostic_msgs::msg::DiagnosticArray::SharedPtr msg)
         {
             diagnosticsCallback(msg);
+        });
+
+    imu_sub_ = node_->create_subscription<sensor_msgs::msg::Imu>(
+        kImuTopic, rclcpp::SensorDataQoS(),
+        [this](const sensor_msgs::msg::Imu::SharedPtr msg)
+        {
+            imuCallback(msg);
         });
 
     // /perception video topics are discovered automatically from the ROS graph.
@@ -47,7 +71,7 @@ RosUiBridge::RosUiBridge(QObject *parent)
     executor_ = std::make_unique<rclcpp::executors::SingleThreadedExecutor>();
     executor_->add_node(node_);
 
-    ros_status_ = "Subscribed: /diagnostics; scanning /perception image topics";
+    ros_status_ = "Subscribed: /diagnostics, /camera/camera/imu; scanning /perception image topics";
     emit rosStatusChanged();
 
     discoverVideoTopics();
@@ -60,6 +84,9 @@ RosUiBridge::RosUiBridge(QObject *parent)
 
 RosUiBridge::~RosUiBridge()
 {
+    stopPlotRecording();
+    setPlaybackPlaying(false);
+
     if (executor_) {
         executor_->cancel();
     }
@@ -232,6 +259,478 @@ QImage RosUiBridge::videoFrameImage(int slotIndex) const
 
     std::lock_guard<std::mutex> lock(video_frame_mutex_);
     return video_slots_[static_cast<size_t>(slotIndex)].frame.copy();
+}
+
+QVariantList RosUiBridge::plotFieldOptions() const
+{
+    return plot_field_options_;
+}
+
+QVariantList RosUiBridge::imuPlotSamples() const
+{
+    return imu_plot_samples_;
+}
+
+QString RosUiBridge::plotStatus() const
+{
+    return plot_status_;
+}
+
+QString RosUiBridge::plotDataSource() const
+{
+    return plot_data_source_;
+}
+
+QVariantList RosUiBridge::recordedPlotFieldOptions() const
+{
+    return recorded_plot_field_options_;
+}
+
+QVariantList RosUiBridge::recordedPlotSamples() const
+{
+    return recorded_plot_samples_;
+}
+
+bool RosUiBridge::plotRecording() const
+{
+    return plot_recording_;
+}
+
+QString RosUiBridge::plotRecordingPath() const
+{
+    return plot_recording_path_;
+}
+
+QString RosUiBridge::recordedFilePath() const
+{
+    return recorded_file_path_;
+}
+
+QString RosUiBridge::recordedStatus() const
+{
+    return recorded_status_;
+}
+
+double RosUiBridge::playbackStartTimeMs() const
+{
+    return playback_start_time_ms_;
+}
+
+double RosUiBridge::playbackEndTimeMs() const
+{
+    return playback_end_time_ms_;
+}
+
+double RosUiBridge::playbackCurrentTimeMs() const
+{
+    return playback_current_time_ms_;
+}
+
+double RosUiBridge::playbackSpeed() const
+{
+    return playback_speed_;
+}
+
+bool RosUiBridge::playbackPlaying() const
+{
+    return playback_playing_;
+}
+
+void RosUiBridge::setPlotDataSource(const QString &dataSource)
+{
+    const QString normalized = dataSource.trimmed().toLower();
+    const QString next = normalized == QStringLiteral("recorded") ? QStringLiteral("recorded") : QStringLiteral("live");
+    if (plot_data_source_ == next) {
+        return;
+    }
+
+    plot_data_source_ = next;
+    emit plotDataSourceChanged();
+}
+
+QString RosUiBridge::defaultPlotRecordingPath() const
+{
+    const QString directory = QDir::homePath() + QStringLiteral("/asr_sdm_monitor_recordings");
+    QDir().mkpath(directory);
+    const QString stamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss"));
+    return directory + QStringLiteral("/plot_") + stamp;
+}
+
+QString RosUiBridge::normalizeLocalPath(const QString &filePath)
+{
+    QString path = filePath.trimmed();
+    if (path.startsWith(QStringLiteral("file:"))) {
+        const QUrl url(path);
+        if (url.isLocalFile()) {
+            path = url.toLocalFile();
+        }
+    }
+
+    if (path.startsWith(QStringLiteral("~/"))) {
+        path = QDir::homePath() + path.mid(1);
+    }
+
+    if (path.isEmpty()) {
+        return {};
+    }
+
+    return QDir::cleanPath(path);
+}
+
+bool RosUiBridge::startPlotRecording(const QString &filePath)
+{
+    QString path = normalizeLocalPath(filePath);
+    if (path.isEmpty()) {
+        path = defaultPlotRecordingPath();
+    }
+
+    stopPlotRecording();
+
+    const QFileInfo info(path);
+    const QString parent_dir = info.absolutePath();
+    if (!QDir().mkpath(parent_dir)) {
+        plot_status_ = QStringLiteral("Cannot create recording directory: %1").arg(parent_dir);
+        emit plotStatusChanged();
+        return false;
+    }
+
+    if (QFileInfo::exists(path)) {
+        plot_status_ = QStringLiteral("Bag path already exists: %1").arg(path);
+        emit plotStatusChanged();
+        return false;
+    }
+
+    try {
+        auto writer = std::make_unique<rosbag2_cpp::Writer>();
+        writer->open(path.toStdString());
+
+        {
+            std::lock_guard<std::mutex> lock(plot_recording_mutex_);
+            plot_bag_writer_ = std::move(writer);
+            plot_recorded_message_count_ = 0;
+            plot_recording_ = true;
+            plot_recording_path_ = path;
+        }
+
+        plot_status_ = QStringLiteral("Recording bag: %1").arg(path);
+        emit plotRecordingChanged();
+        emit plotStatusChanged();
+        return true;
+    } catch (const std::exception &error) {
+        plot_status_ = QStringLiteral("Cannot start bag recording: %1").arg(QString::fromUtf8(error.what()));
+        emit plotStatusChanged();
+        return false;
+    }
+}
+
+void RosUiBridge::stopPlotRecording()
+{
+    bool was_recording = false;
+    QString saved_path;
+    size_t saved_count = 0;
+
+    {
+        std::lock_guard<std::mutex> lock(plot_recording_mutex_);
+        was_recording = plot_recording_;
+        saved_path = plot_recording_path_;
+        saved_count = plot_recorded_message_count_;
+        plot_recording_ = false;
+        plot_bag_writer_.reset();
+    }
+
+    if (!was_recording) {
+        return;
+    }
+
+    plot_status_ = QStringLiteral("Bag saved: %1 (%2 messages)").arg(saved_path).arg(saved_count);
+    emit plotRecordingChanged();
+    emit plotStatusChanged();
+}
+
+void RosUiBridge::writePlotRecordingSample(const sensor_msgs::msg::Imu &msg)
+{
+    std::lock_guard<std::mutex> lock(plot_recording_mutex_);
+    if (!plot_recording_ || !plot_bag_writer_) {
+        return;
+    }
+
+    try {
+        rclcpp::Time timestamp(msg.header.stamp);
+        if (timestamp.nanoseconds() <= 0 && node_) {
+            timestamp = node_->now();
+        }
+
+        plot_bag_writer_->write(msg, std::string(kImuTopic), timestamp);
+        ++plot_recorded_message_count_;
+    } catch (const std::exception &error) {
+        plot_recording_ = false;
+        plot_status_ = QStringLiteral("Bag recording stopped: %1").arg(QString::fromUtf8(error.what()));
+        plot_bag_writer_.reset();
+        QMetaObject::invokeMethod(
+            this,
+            [this]()
+            {
+                emit plotRecordingChanged();
+                emit plotStatusChanged();
+            },
+            Qt::QueuedConnection);
+    }
+}
+
+bool RosUiBridge::openRecordedPlotFile(const QString &filePath)
+{
+    const QString path = normalizeLocalPath(filePath);
+    if (path.isEmpty()) {
+        recorded_status_ = QStringLiteral("Recorded file path is empty");
+        emit recordedPlaybackChanged();
+        return false;
+    }
+
+    setPlaybackPlaying(false);
+
+    const bool ok = loadRecordedRosbag(path);
+
+    if (ok) {
+        setPlotDataSource(QStringLiteral("recorded"));
+    }
+
+    emit recordedPlaybackChanged();
+    emit recordedPlotFieldOptionsChanged();
+    emit recordedPlotSamplesChanged();
+    emit playbackCurrentTimeMsChanged();
+    return ok;
+}
+
+QVariantList RosUiBridge::plotFieldOptionsForPaths(const QStringList &paths)
+{
+    QVariantList result;
+    const QVariantList candidates = defaultPlotFieldOptions();
+    for (const QVariant &candidate : candidates) {
+        const QVariantMap field = candidate.toMap();
+        const QString path = field.value(QStringLiteral("path")).toString();
+        if (paths.contains(path)) {
+            result.append(field);
+        }
+    }
+    return result;
+}
+
+bool RosUiBridge::loadRecordedRosbag(const QString &filePath)
+{
+    try {
+        rosbag2_cpp::Reader reader;
+        reader.open(filePath.toStdString());
+
+        QVariantList samples;
+        QStringList fieldPaths;
+        const QVariantList candidates = defaultPlotFieldOptions();
+        for (const QVariant &candidate : candidates) {
+            fieldPaths.append(candidate.toMap().value(QStringLiteral("path")).toString());
+        }
+
+        rclcpp::Serialization<sensor_msgs::msg::Imu> serializer;
+        double bagStartMs = -1.0;
+        double bagEndMs = -1.0;
+
+        while (reader.has_next()) {
+            const auto bagMessage = reader.read_next();
+            if (!bagMessage) {
+                continue;
+            }
+
+            const double messageTimeMs = static_cast<double>(bagMessage->recv_timestamp) / 1000000.0;
+            if (messageTimeMs >= 0.0) {
+                if (bagStartMs < 0.0 || messageTimeMs < bagStartMs) {
+                    bagStartMs = messageTimeMs;
+                }
+                if (bagEndMs < 0.0 || messageTimeMs > bagEndMs) {
+                    bagEndMs = messageTimeMs;
+                }
+            }
+
+            if (bagMessage->topic_name != kImuTopic) {
+                continue;
+            }
+
+            sensor_msgs::msg::Imu imu;
+            rclcpp::SerializedMessage serializedMessage(*bagMessage->serialized_data);
+            serializer.deserialize_message(&serializedMessage, &imu);
+
+            QVariantMap sample = sampleFromImu(imu, messageTimeMs);
+            samples.append(sample);
+        }
+
+        if (bagStartMs < 0.0 || bagEndMs < 0.0) {
+            recorded_status_ = QStringLiteral("No messages found in bag: %1").arg(filePath);
+            return false;
+        }
+
+        std::sort(samples.begin(), samples.end(), [](const QVariant &a, const QVariant &b)
+        {
+            return a.toMap().value(QStringLiteral("absoluteTimeMs")).toDouble()
+                   < b.toMap().value(QStringLiteral("absoluteTimeMs")).toDouble();
+        });
+
+        for (QVariant &item : samples) {
+            QVariantMap sample = item.toMap();
+            sample[QStringLiteral("relativeTime")] = (sample.value(QStringLiteral("absoluteTimeMs")).toDouble() - bagStartMs) / 1000.0;
+            item = sample;
+        }
+
+        recorded_file_path_ = filePath;
+        recorded_plot_samples_ = samples;
+        recorded_plot_field_options_ = samples.isEmpty() ? QVariantList{} : plotFieldOptionsForPaths(fieldPaths);
+        recorded_bag_start_time_ms_ = bagStartMs;
+        recorded_bag_end_time_ms_ = bagEndMs;
+        playback_start_time_ms_ = bagStartMs;
+        playback_end_time_ms_ = bagEndMs;
+        playback_current_time_ms_ = playback_start_time_ms_;
+        recorded_status_ = samples.isEmpty()
+                               ? QStringLiteral("Loaded bag: %1; no supported plot topics found").arg(filePath)
+                               : QStringLiteral("Loaded bag: %1 (%2 IMU samples)").arg(filePath).arg(samples.size());
+        return true;
+    } catch (const std::exception &error) {
+        recorded_status_ = QStringLiteral("Cannot load rosbag / MCAP: %1").arg(QString::fromUtf8(error.what()));
+        return false;
+    }
+}
+
+void RosUiBridge::updateRecordedPlaybackBounds()
+{
+    setPlaybackPlaying(false);
+
+    if (recorded_plot_samples_.isEmpty()) {
+        recorded_bag_start_time_ms_ = 0.0;
+        recorded_bag_end_time_ms_ = 0.0;
+        playback_start_time_ms_ = 0.0;
+        playback_end_time_ms_ = 0.0;
+        playback_current_time_ms_ = 0.0;
+        return;
+    }
+
+    recorded_bag_start_time_ms_ = recorded_plot_samples_.first().toMap().value(QStringLiteral("absoluteTimeMs")).toDouble();
+    recorded_bag_end_time_ms_ = recorded_plot_samples_.last().toMap().value(QStringLiteral("absoluteTimeMs")).toDouble();
+    playback_start_time_ms_ = recorded_bag_start_time_ms_;
+    playback_end_time_ms_ = recorded_bag_end_time_ms_;
+    playback_current_time_ms_ = playback_start_time_ms_;
+}
+
+void RosUiBridge::setPlaybackStartTimeMs(double startTimeMs)
+{
+    if (recorded_bag_end_time_ms_ <= recorded_bag_start_time_ms_) {
+        return;
+    }
+
+    const double upper = std::min(playback_end_time_ms_, recorded_bag_end_time_ms_);
+    const double clamped = std::clamp(startTimeMs, recorded_bag_start_time_ms_, upper);
+    if (std::abs(playback_start_time_ms_ - clamped) < 0.5) {
+        return;
+    }
+
+    playback_start_time_ms_ = clamped;
+    bool currentChanged = false;
+    if (playback_current_time_ms_ < playback_start_time_ms_) {
+        playback_current_time_ms_ = playback_start_time_ms_;
+        currentChanged = true;
+    }
+
+    emit recordedPlaybackChanged();
+    if (currentChanged) {
+        emit playbackCurrentTimeMsChanged();
+    }
+}
+
+void RosUiBridge::setPlaybackEndTimeMs(double endTimeMs)
+{
+    if (recorded_bag_end_time_ms_ <= recorded_bag_start_time_ms_) {
+        return;
+    }
+
+    const double lower = std::max(playback_start_time_ms_, recorded_bag_start_time_ms_);
+    const double clamped = std::clamp(endTimeMs, lower, recorded_bag_end_time_ms_);
+    if (std::abs(playback_end_time_ms_ - clamped) < 0.5) {
+        return;
+    }
+
+    playback_end_time_ms_ = clamped;
+    bool currentChanged = false;
+    if (playback_current_time_ms_ > playback_end_time_ms_) {
+        playback_current_time_ms_ = playback_end_time_ms_;
+        currentChanged = true;
+    }
+
+    emit recordedPlaybackChanged();
+    if (currentChanged) {
+        emit playbackCurrentTimeMsChanged();
+    }
+}
+
+void RosUiBridge::setPlaybackCurrentTimeMs(double currentTimeMs)
+{
+    const double clamped = std::clamp(currentTimeMs, playback_start_time_ms_, playback_end_time_ms_);
+    if (std::abs(playback_current_time_ms_ - clamped) < 0.5) {
+        return;
+    }
+
+    playback_current_time_ms_ = clamped;
+    emit playbackCurrentTimeMsChanged();
+}
+
+void RosUiBridge::setPlaybackSpeed(double speed)
+{
+    const double next = std::clamp(speed, 0.05, 20.0);
+    if (std::abs(playback_speed_ - next) < 1e-6) {
+        return;
+    }
+
+    playback_speed_ = next;
+    emit playbackSpeedChanged();
+}
+
+void RosUiBridge::setPlaybackPlaying(bool playing)
+{
+    if (playing && playback_end_time_ms_ <= playback_start_time_ms_) {
+        playing = false;
+    }
+
+    if (playback_playing_ == playing) {
+        return;
+    }
+
+    playback_playing_ = playing;
+    if (playback_timer_) {
+        if (playback_playing_) {
+            playback_last_tick_ = std::chrono::steady_clock::now();
+            playback_timer_->start();
+        } else {
+            playback_timer_->stop();
+        }
+    }
+
+    emit playbackPlayingChanged();
+}
+
+void RosUiBridge::playbackTick()
+{
+    if (!playback_playing_) {
+        return;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    const double elapsedMs = std::chrono::duration<double, std::milli>(now - playback_last_tick_).count();
+    playback_last_tick_ = now;
+
+    double next = playback_current_time_ms_ + elapsedMs * playback_speed_;
+    if (next >= playback_end_time_ms_) {
+        next = playback_end_time_ms_;
+        playback_current_time_ms_ = next;
+        emit playbackCurrentTimeMsChanged();
+        setPlaybackPlaying(false);
+        return;
+    }
+
+    playback_current_time_ms_ = next;
+    emit playbackCurrentTimeMsChanged();
 }
 
 void RosUiBridge::discoverVideoTopics()
@@ -968,6 +1467,124 @@ void RosUiBridge::emitVideoSlotChanged(int slotIndex)
     }
 
     emit videoSlotsChanged();
+}
+
+QVariantList RosUiBridge::defaultPlotFieldOptions()
+{
+    QVariantList fields;
+
+    auto append_field = [&fields](const QString &fieldName, const QString &label, const QString &unit)
+    {
+        QVariantMap field;
+        field[QStringLiteral("field")] = fieldName;
+        field[QStringLiteral("path")] = plotTopicPath(fieldName);
+        field[QStringLiteral("label")] = label;
+        field[QStringLiteral("unit")] = unit;
+        fields.append(field);
+    };
+
+    append_field(QStringLiteral("angular_velocity.x"), QStringLiteral("angular_velocity.x"), QStringLiteral("rad/s"));
+    append_field(QStringLiteral("angular_velocity.y"), QStringLiteral("angular_velocity.y"), QStringLiteral("rad/s"));
+    append_field(QStringLiteral("angular_velocity.z"), QStringLiteral("angular_velocity.z"), QStringLiteral("rad/s"));
+    append_field(QStringLiteral("linear_acceleration.x"), QStringLiteral("linear_acceleration.x"), QStringLiteral("m/s^2"));
+    append_field(QStringLiteral("linear_acceleration.y"), QStringLiteral("linear_acceleration.y"), QStringLiteral("m/s^2"));
+    append_field(QStringLiteral("linear_acceleration.z"), QStringLiteral("linear_acceleration.z"), QStringLiteral("m/s^2"));
+
+    return fields;
+}
+
+QString RosUiBridge::plotTopicPath(const QString &fieldName)
+{
+    return QStringLiteral("/camera/camera/imu.%1").arg(fieldName);
+}
+
+QVariantMap RosUiBridge::sampleFromImu(const sensor_msgs::msg::Imu &msg, double fallbackAbsoluteTimeMs)
+{
+    double absoluteTimeMs = (static_cast<double>(msg.header.stamp.sec) * 1000.0)
+                            + (static_cast<double>(msg.header.stamp.nanosec) * 1e-6);
+    if (absoluteTimeMs <= 0.0 && fallbackAbsoluteTimeMs >= 0.0) {
+        absoluteTimeMs = fallbackAbsoluteTimeMs;
+    }
+
+    QVariantMap sample;
+    sample[QStringLiteral("stamp")] = absoluteTimeMs / 1000.0;
+    sample[QStringLiteral("absoluteTimeMs")] = absoluteTimeMs;
+    sample[QStringLiteral("/camera/camera/imu.angular_velocity.x")] = msg.angular_velocity.x;
+    sample[QStringLiteral("/camera/camera/imu.angular_velocity.y")] = msg.angular_velocity.y;
+    sample[QStringLiteral("/camera/camera/imu.angular_velocity.z")] = msg.angular_velocity.z;
+    sample[QStringLiteral("/camera/camera/imu.linear_acceleration.x")] = msg.linear_acceleration.x;
+    sample[QStringLiteral("/camera/camera/imu.linear_acceleration.y")] = msg.linear_acceleration.y;
+    sample[QStringLiteral("/camera/camera/imu.linear_acceleration.z")] = msg.linear_acceleration.z;
+    return sample;
+}
+
+void RosUiBridge::activatePublishedPlotFields(const QVariantMap &sample)
+{
+    bool changed = false;
+    const QVariantList candidates = defaultPlotFieldOptions();
+
+    for (const QVariant &candidate : candidates) {
+        const QVariantMap field = candidate.toMap();
+        const QString path = field.value(QStringLiteral("path")).toString();
+
+        if (path.isEmpty() || active_plot_field_paths_.contains(path) || !sample.contains(path)) {
+            continue;
+        }
+
+        active_plot_field_paths_.append(path);
+        plot_field_options_.append(field);
+        changed = true;
+    }
+
+    if (changed) {
+        emit plotFieldOptionsChanged();
+    }
+}
+
+void RosUiBridge::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
+{
+    if (!msg) {
+        return;
+    }
+
+    const QVariantMap sample = sampleFromImu(*msg);
+    const double stamp = sample.value(QStringLiteral("stamp")).toDouble();
+    writePlotRecordingSample(*msg);
+
+    QMetaObject::invokeMethod(
+        this,
+        [this, sample, stamp]()
+        {
+            if (plot_start_time_ < 0.0) {
+                plot_start_time_ = stamp;
+            }
+
+            activatePublishedPlotFields(sample);
+
+            QVariantMap stored_sample = sample;
+            stored_sample[QStringLiteral("relativeTime")] = stamp - plot_start_time_;
+            imu_plot_samples_.append(stored_sample);
+            while (imu_plot_samples_.size() > kMaxPlotSamples) {
+                imu_plot_samples_.removeFirst();
+            }
+
+            bool recording_now = false;
+            QString recording_path;
+            size_t recorded_count = 0;
+            {
+                std::lock_guard<std::mutex> lock(plot_recording_mutex_);
+                recording_now = plot_recording_;
+                recording_path = plot_recording_path_;
+                recorded_count = plot_recorded_message_count_;
+            }
+
+            plot_status_ = recording_now
+                               ? QStringLiteral("Recording bag: %1 (%2 messages)").arg(recording_path).arg(recorded_count)
+                               : QStringLiteral("Receiving: /camera/camera/imu (%1 samples)").arg(imu_plot_samples_.size());
+            emit imuPlotSamplesChanged();
+            emit plotStatusChanged();
+        },
+        Qt::QueuedConnection);
 }
 
 QImage RosUiBridge::imageMessageToQImage(const sensor_msgs::msg::Image &msg, QString *errorMessage)
