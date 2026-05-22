@@ -693,6 +693,11 @@ void RosUiBridge::setPlaybackPlaying(bool playing)
         playing = false;
     }
 
+    if (playing && playback_current_time_ms_ >= playback_end_time_ms_ - 0.5) {
+        playback_current_time_ms_ = playback_start_time_ms_;
+        emit playbackCurrentTimeMsChanged();
+    }
+
     if (playback_playing_ == playing) {
         return;
     }
