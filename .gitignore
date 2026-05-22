@@ -38,3 +38,6 @@ log
 
 #Files
 build_output.log
+
+# ROS 2 bag / recorded data
+/datasheet/airground_rig_s3_ros2/

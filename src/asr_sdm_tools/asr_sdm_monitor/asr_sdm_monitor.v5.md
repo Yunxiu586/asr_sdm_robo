@@ -3,8 +3,7 @@
 增加
 
 + Plot页面(以IMU的速度和加速度数据为例)
-  + Plot有一个自定义的候选topic集合，当检测到有候选topic正在发布，就可以在Plot里可视化
-  + Plot曲线支持鼠标滚轮缩放，左键拖动和Reset恢复
+  + 用户在Topics里查看当前所有发布的topic，并可以选择Plot的候选集合，候选集合将可以在Live和Recorded里可视化
   + Live可视化当前的topic
     + Start Recording可以记录当前的topic
   + Recorded播放ros2bag

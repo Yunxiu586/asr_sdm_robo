@@ -64,6 +64,8 @@ class RosUiBridge : public QObject
     Q_PROPERTY(int videoFrame2Revision READ videoFrame2Revision NOTIFY videoSlot2Changed)
     Q_PROPERTY(int videoFrame3Revision READ videoFrame3Revision NOTIFY videoSlot3Changed)
 
+    Q_PROPERTY(QVariantList plotTopics READ plotTopics NOTIFY plotTopicsChanged)
+    Q_PROPERTY(QString plotTopicsStatus READ plotTopicsStatus NOTIFY plotTopicsChanged)
     Q_PROPERTY(QVariantList plotFieldOptions READ plotFieldOptions NOTIFY plotFieldOptionsChanged)
     Q_PROPERTY(QVariantList imuPlotSamples READ imuPlotSamples NOTIFY imuPlotSamplesChanged)
     Q_PROPERTY(QString plotStatus READ plotStatus NOTIFY plotStatusChanged)
@@ -122,6 +124,8 @@ public:
     int videoFrame3Revision() const;
     QImage videoFrameImage(int slotIndex) const;
 
+    QVariantList plotTopics() const;
+    QString plotTopicsStatus() const;
     QVariantList plotFieldOptions() const;
     QVariantList imuPlotSamples() const;
     QString plotStatus() const;
@@ -140,6 +144,8 @@ public:
     bool playbackPlaying() const;
 
     Q_INVOKABLE void setVideoTopic(int slotIndex, const QString &topicName);
+    Q_INVOKABLE void refreshPlotTopics();
+    Q_INVOKABLE void setPlotTopicSelected(const QString &topicName, bool selected);
     Q_INVOKABLE void setPlotDataSource(const QString &dataSource);
     Q_INVOKABLE QString defaultPlotRecordingPath() const;
     Q_INVOKABLE bool startPlotRecording(const QString &filePath);
@@ -180,6 +186,7 @@ signals:
     void videoSlot2Changed();
     void videoSlot3Changed();
 
+    void plotTopicsChanged();
     void imuPlotSamplesChanged();
     void plotFieldOptionsChanged();
     void plotStatusChanged();
@@ -221,13 +228,23 @@ private:
     void updateVideoStatus(int slotIndex, const QString &status);
     void emitVideoSlotChanged(int slotIndex);
 
-    void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
-    static QVariantList defaultPlotFieldOptions();
-    static QVariantList plotFieldOptionsForPaths(const QStringList &paths);
-    void activatePublishedPlotFields(const QVariantMap &sample);
-    static QString plotTopicPath(const QString &fieldName);
-    static QVariantMap sampleFromImu(const sensor_msgs::msg::Imu &msg, double fallbackAbsoluteTimeMs = -1.0);
-    void writePlotRecordingSample(const sensor_msgs::msg::Imu &msg);
+    void discoverPlotTopics();
+    void applyDiscoveredPlotTopics(const QStringList &topicNames, const QMap<QString, QString> &topicTypes);
+    void rebuildPlotTopicsModel();
+    void rebuildPlotFieldOptions();
+    QVariantList filterPlotFieldOptionsForSelectedTopics(const QVariantList &fields) const;
+    void refreshPlotSubscriptions();
+    void stopPlotSubscriptions();
+    void startPlotSubscriptionForTopic(const QString &topicName, const QString &topicType);
+    void appendLivePlotSample(const QVariantMap &sample, const QString &topicName);
+    void flushLivePlotSamples();
+    template<typename MessageT>
+    void startTypedPlotSubscription(const QString &topicName);
+    template<typename MessageT>
+    void writePlotRecordingSample(const QString &topicName, const MessageT &msg, double absoluteTimeMs);
+    static QVariantList plotFieldOptionsForTopic(const QString &topicName, const QString &topicType);
+    static QString plotFieldPath(const QString &topicName, const QString &fieldName);
+    static bool isSupportedPlotType(const QString &topicType);
     static QString normalizeLocalPath(const QString &filePath);
     bool loadRecordedRosbag(const QString &filePath);
     void updateRecordedPlaybackBounds();
@@ -274,10 +291,20 @@ private:
     std::array<VideoSlot, 4> video_slots_;
     mutable std::mutex video_frame_mutex_;
 
+    QVariantList plot_topics_;
+    QStringList plot_topic_names_;
+    QMap<QString, QString> plot_topic_types_;
+    QStringList selected_plot_topic_names_;
+    QString plot_topics_status_ = QStringLiteral("Waiting for ROS topics ...");
+    QMap<QString, rclcpp::SubscriptionBase::SharedPtr> plot_subscriptions_;
+
     QVariantList plot_field_options_;
-    QStringList active_plot_field_paths_;
+    QVariantList recorded_available_plot_field_options_;
     QVariantList imu_plot_samples_;
-    QString plot_status_ = QStringLiteral("Waiting for /camera/camera/imu ...");
+    QVariantList pending_live_plot_samples_;
+    QString pending_live_plot_status_topic_;
+    std::mutex live_plot_mutex_;
+    QString plot_status_ = QStringLiteral("Waiting for selected plot topics ...");
     double plot_start_time_ = -1.0;
 
     QString plot_data_source_ = QStringLiteral("live");
@@ -298,13 +325,13 @@ private:
     double playback_speed_ = 1.0;
     bool playback_playing_ = false;
     QTimer *playback_timer_ = nullptr;
+    QTimer *plot_update_timer_ = nullptr;
     std::chrono::steady_clock::time_point playback_last_tick_;
 
     rclcpp::Node::SharedPtr node_;
     rclcpp::Subscription<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_sub_;
-    rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr video_topics_sub_;
-    rclcpp::TimerBase::SharedPtr video_topic_discovery_timer_;
+    rclcpp::TimerBase::SharedPtr topic_discovery_timer_;
     std::array<rclcpp::Subscription<std_msgs::msg::String>::SharedPtr, 4> video_status_subs_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr video_select_pub_;
     std::unique_ptr<rclcpp::executors::SingleThreadedExecutor> executor_;
