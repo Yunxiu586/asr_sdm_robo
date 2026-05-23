@@ -22,6 +22,7 @@ Item {
     property bool xShowTickLabels: true
     property bool yShowTickLabels: true
     property string settingsSource: "live"
+    property string plotSection: "live"
     property bool suppressDataSourceSync: false
     property var livePlotSettings: ({
         xAxisMode: "time",
@@ -53,7 +54,8 @@ Item {
     readonly property string dataSource: RosUi.plotDataSource
     readonly property var fieldOptions: root.dataSource === "recorded" ? RosUi.recordedPlotFieldOptions : RosUi.plotFieldOptions
     readonly property var sourceSamples: root.dataSource === "recorded" ? RosUi.recordedPlotSamples : RosUi.imuPlotSamples
-    readonly property var dataSourceOptions: [
+    readonly property var plotSectionOptions: [
+        { value: "topics", label: I18n.t(root.language, "topics") },
         { value: "live", label: I18n.t(root.language, "live") },
         { value: "recorded", label: I18n.t(root.language, "recorded") }
     ]
@@ -64,6 +66,10 @@ Item {
     readonly property var timestampOptions: [
         { value: "relative", label: I18n.t(root.language, "relativeTime") },
         { value: "absolute", label: I18n.t(root.language, "absoluteTime") }
+    ]
+    readonly property var axisScaleOptions: [
+        { value: "independent", label: I18n.t(root.language, "independent") },
+        { value: "square", label: I18n.t(root.language, "square") }
     ]
     readonly property var playbackSpeedOptions: [
         { value: 0.25, label: "0.25x" },
@@ -203,6 +209,19 @@ Item {
         root.suppressDataSourceSync = false
     }
 
+    function switchPlotSection(section) {
+        if (section === root.plotSection)
+            return
+        if (section === "topics") {
+            root.saveCurrentSettings()
+            root.plotSection = "topics"
+            RosUi.refreshPlotTopics()
+            return
+        }
+        root.plotSection = section
+        root.switchPlotSource(section)
+    }
+
     function indexOfValue(options, value, role) {
         const key = role || "value"
         if (!options)
@@ -242,6 +261,7 @@ Item {
         const labels = [
             I18n.t(root.language, "labelType"),
             I18n.t(root.language, "label"),
+            I18n.t(root.language, "axisScale"),
             I18n.t(root.language, "showTickLabels"),
             I18n.t(root.language, "timestampFormat"),
             I18n.t(root.language, "currentTime"),
@@ -356,7 +376,7 @@ Item {
         for (let j = 0; j < root.fieldOptions.length; ++j) {
             const path = root.fieldOptions[j].path
             if (!selectedElsewhere[path])
-                result.push({ path: path, display: path })
+                result.push({ path: path, display: root.fieldOptions[j].label || path })
         }
         return result
     }
@@ -489,6 +509,22 @@ Item {
         return fallbackMs
     }
 
+
+    function topicSummaryText() {
+        const topics = RosUi.plotTopics || []
+        let selected = 0
+        let fields = 0
+        for (let i = 0; i < topics.length; ++i) {
+            if (topics[i].selected) {
+                selected += 1
+                fields += Number(topics[i].fieldCount || 0)
+            }
+        }
+        return I18n.t(root.language, "topicSummaryTopics") + ": " + topics.length
+               + "   " + I18n.t(root.language, "topicSummarySelected") + ": " + selected
+               + "   " + I18n.t(root.language, "topicSummaryFields") + ": " + fields
+    }
+
     function currentLiveTimeText() {
         const samples = RosUi.imuPlotSamples || []
         if (samples.length === 0)
@@ -531,7 +567,7 @@ Item {
         const first = lowerBoundByTime(src, startMs)
         const last = lowerBoundByTime(src, endMs)
         const filtered = []
-        for (let i = first; i < src.length && i <= last; ++i) {
+        for (let i = first; i < src.length && i < last; ++i) {
             const sample = src[i]
             const t = Number(sample.absoluteTimeMs)
             if (isFinite(t) && t >= startMs && t <= endMs)
@@ -576,6 +612,8 @@ Item {
     }
     onDataSourceChanged: {
         if (!root.suppressDataSourceSync) {
+            if (root.plotSection !== "topics")
+                root.plotSection = root.dataSource
             if (root.settingsSource !== root.dataSource) {
                 root.saveCurrentSettings()
                 root.loadSettingsForSource(root.dataSource)
@@ -612,9 +650,11 @@ Item {
 
     Component.onCompleted: {
         root.recordingPath = RosUi.defaultPlotRecordingPath()
+        root.plotSection = "topics"
         root.settingsSource = root.dataSource
         root.loadSettingsForSource(root.dataSource)
         root.refreshDisplayedSamples()
+        RosUi.refreshPlotTopics()
     }
 
     ColumnLayout {
@@ -627,15 +667,15 @@ Item {
             spacing: root.width < 520 ? 6 : 12
 
             Repeater {
-                model: root.dataSourceOptions
+                model: root.plotSectionOptions
                 delegate: SelectableButton {
                     label: modelData.label
-                    selected: root.dataSource === modelData.value
+                    selected: root.plotSection === modelData.value
                     appPalette: root.appPalette
                     Layout.minimumWidth: 64
                     Layout.preferredWidth: 140
                     implicitHeight: 46
-                    onClicked: root.switchPlotSource(modelData.value)
+                    onClicked: root.switchPlotSection(modelData.value)
                 }
             }
 
@@ -643,6 +683,7 @@ Item {
         }
 
         RowLayout {
+            visible: root.plotSection !== "topics"
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: 12
@@ -900,7 +941,7 @@ Item {
                                 id: xTopicCombo
                                 Layout.fillWidth: true
                                 model: root.fieldOptions
-                                textRole: "path"
+                                textRole: "label"
                                 currentIndex: root.indexOfValue(root.fieldOptions, root.xField, "path")
                                 onActivated: {
                                     if (root.fieldOptions.length > 0)
@@ -915,6 +956,38 @@ Item {
                                 palette.highlightedText: root.appPalette.accentText
                                 background: Rectangle { radius: 8; color: root.appPalette.inputBackground; border.color: root.appPalette.controlBorder; border.width: 1 }
                                 contentItem: Text { leftPadding: 12; rightPadding: 34; text: xTopicCombo.displayText; color: root.appPalette.textPrimary; font.pixelSize: root.baseFontSize; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
+                            }
+                        }
+
+                        RowLayout {
+                            visible: root.xAxisMode === "topic"
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            Text {
+                                Layout.preferredWidth: root.settingsLabelColumnWidth
+                                text: I18n.t(root.language, "axisScale")
+                                font.pixelSize: root.baseFontSize
+                                color: root.appPalette.textSecondary
+                                elide: Text.ElideRight
+                            }
+
+                            ComboBox {
+                                id: axisScaleCombo
+                                Layout.fillWidth: true
+                                model: root.axisScaleOptions
+                                textRole: "label"
+                                currentIndex: root.indexOfValue(root.axisScaleOptions, root.axisScaleMode)
+                                onActivated: root.axisScaleMode = root.axisScaleOptions[currentIndex].value
+                                palette.window: root.appPalette.inputBackground
+                                palette.button: root.appPalette.inputBackground
+                                palette.base: root.appPalette.inputBackground
+                                palette.text: root.appPalette.textPrimary
+                                palette.buttonText: root.appPalette.textPrimary
+                                palette.highlight: root.appPalette.accent
+                                palette.highlightedText: root.appPalette.accentText
+                                background: Rectangle { radius: 8; color: root.appPalette.inputBackground; border.color: root.appPalette.controlBorder; border.width: 1 }
+                                contentItem: Text { leftPadding: 12; rightPadding: 34; text: axisScaleCombo.displayText; color: root.appPalette.textPrimary; font.pixelSize: root.baseFontSize; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
                             }
                         }
 
@@ -1332,6 +1405,164 @@ Item {
                             color: root.appPalette.textSecondary
                             horizontalAlignment: Text.AlignRight
                             elide: Text.ElideRight
+                        }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            id: topicsPanel
+            visible: root.plotSection === "topics"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            radius: 12
+            color: root.appPalette.sidebarBackground
+            border.color: root.appPalette.border
+            border.width: 1
+            clip: true
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 16
+                spacing: 12
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: I18n.t(root.language, "allPublishedTopics")
+                        font.pixelSize: root.baseFontSize + 4
+                        font.bold: true
+                        color: root.appPalette.textPrimary
+                        elide: Text.ElideRight
+                    }
+
+                    SelectableButton {
+                        Layout.preferredWidth: 120
+                        implicitHeight: 38
+                        label: I18n.t(root.language, "refresh")
+                        selected: false
+                        appPalette: root.appPalette
+                        onClicked: RosUi.refreshPlotTopics()
+                    }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: root.topicSummaryText()
+                    font.pixelSize: root.baseFontSize
+                    color: root.appPalette.textSecondary
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: I18n.t(root.language, "topicCandidateHint")
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: root.baseFontSize - 1
+                    color: root.appPalette.textSecondary
+                }
+
+                Item {
+                    id: topicColumns
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 0
+                    visible: false
+                    property int checkWidth: 44
+                    property int statusWidth: Math.max(120, Math.min(160, topicsPanel.width * 0.14))
+                    property int typeWidth: Math.max(300, Math.min(560, topicsPanel.width * 0.36))
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 36
+                    radius: 8
+                    color: root.appPalette.elevatedBackground
+                    border.color: root.appPalette.border
+                    border.width: 1
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 12
+                        spacing: 12
+
+                        Text { Layout.preferredWidth: topicColumns.checkWidth; text: "" }
+                        Text { Layout.fillWidth: true; text: I18n.t(root.language, "topicName"); font.pixelSize: root.baseFontSize; font.bold: true; color: root.appPalette.textPrimary; elide: Text.ElideRight }
+                        Text { Layout.preferredWidth: topicColumns.typeWidth; text: I18n.t(root.language, "topicType"); font.pixelSize: root.baseFontSize; font.bold: true; color: root.appPalette.textPrimary; elide: Text.ElideRight }
+                        Text { Layout.preferredWidth: topicColumns.statusWidth; text: I18n.t(root.language, "plotStatus"); font.pixelSize: root.baseFontSize; font.bold: true; color: root.appPalette.textPrimary; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
+                    }
+                }
+
+                ListView {
+                    id: topicListView
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    spacing: 6
+                    clip: true
+                    model: RosUi.plotTopics
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+                    function restoreContentY(savedContentY) {
+                        const maxContentY = Math.max(0, contentHeight - height)
+                        contentY = Math.max(0, Math.min(savedContentY, maxContentY))
+                    }
+
+                    function setTopicSelectedWithoutJump(topicName, selected) {
+                        const savedContentY = contentY
+                        RosUi.setPlotTopicSelected(topicName, selected)
+                        restoreContentY(savedContentY)
+                        Qt.callLater(function() { topicListView.restoreContentY(savedContentY) })
+                    }
+
+                    delegate: Rectangle {
+                        width: topicListView.width
+                        height: 58
+                        radius: 8
+                        color: root.appPalette.elevatedBackground
+                        border.color: modelData.selected ? root.appPalette.accent : root.appPalette.border
+                        border.width: modelData.selected ? 2 : 1
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 12
+                            spacing: 12
+
+                            CheckBox {
+                                Layout.preferredWidth: topicColumns.checkWidth
+                                checked: !!modelData.selected
+                                onClicked: topicListView.setTopicSelectedWithoutJump(modelData.name, checked)
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: modelData.name
+                                font.pixelSize: root.baseFontSize
+                                color: root.appPalette.textPrimary
+                                elide: Text.ElideMiddle
+                            }
+
+                            Text {
+                                Layout.preferredWidth: topicColumns.typeWidth
+                                text: modelData.type && modelData.type.length > 0 ? modelData.type : "--"
+                                font.pixelSize: root.baseFontSize - 1
+                                color: root.appPalette.textSecondary
+                                elide: Text.ElideMiddle
+                            }
+
+                            Text {
+                                Layout.preferredWidth: topicColumns.statusWidth
+                                text: modelData.plottable ? (I18n.t(root.language, "plottable") + " · " + modelData.fieldCount) : I18n.t(root.language, "unsupportedPlotTopic")
+                                font.pixelSize: root.baseFontSize - 1
+                                color: modelData.plottable ? root.appPalette.textPrimary : root.appPalette.textSecondary
+                                horizontalAlignment: Text.AlignRight
+                                elide: Text.ElideRight
+                            }
                         }
                     }
                 }

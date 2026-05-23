@@ -23,8 +23,33 @@
 
 #include <rclcpp/serialization.hpp>
 #include <rclcpp/serialized_message.hpp>
+#include <builtin_interfaces/msg/time.hpp>
+#include <geometry_msgs/msg/accel.hpp>
+#include <geometry_msgs/msg/accel_stamped.hpp>
+#include <geometry_msgs/msg/twist.hpp>
+#include <geometry_msgs/msg/twist_stamped.hpp>
+#include <geometry_msgs/msg/vector3.hpp>
+#include <geometry_msgs/msg/vector3_stamped.hpp>
+#include <sensor_msgs/msg/battery_state.hpp>
+#include <sensor_msgs/msg/fluid_pressure.hpp>
+#include <sensor_msgs/msg/imu.hpp>
+#include <sensor_msgs/msg/magnetic_field.hpp>
+#include <sensor_msgs/msg/relative_humidity.hpp>
+#include <sensor_msgs/msg/temperature.hpp>
+#include <std_msgs/msg/bool.hpp>
+#include <std_msgs/msg/float32.hpp>
+#include <std_msgs/msg/float64.hpp>
+#include <std_msgs/msg/int8.hpp>
+#include <std_msgs/msg/int16.hpp>
+#include <std_msgs/msg/int32.hpp>
+#include <std_msgs/msg/int64.hpp>
+#include <std_msgs/msg/u_int8.hpp>
+#include <std_msgs/msg/u_int16.hpp>
+#include <std_msgs/msg/u_int32.hpp>
+#include <std_msgs/msg/u_int64.hpp>
 #include <rosbag2_cpp/reader.hpp>
 #include <rosbag2_cpp/writer.hpp>
+#include <rosbag2_storage/serialized_bag_message.hpp>
 
 namespace
 {
@@ -32,16 +57,259 @@ constexpr int kVideoSlotCount = 4;
 constexpr const char *kImageType = "sensor_msgs/msg/Image";
 constexpr const char *kCompressedImageType = "sensor_msgs/msg/CompressedImage";
 constexpr int kMaxPlotSamples = 600;
-constexpr const char *kImuTopic = "/camera/camera/imu";
+constexpr int kPlotUiUpdateIntervalMs = 50;
+constexpr int kRecordedPlaybackUpdateIntervalMs = 50;
+
+QString plotFieldPathForTopic(const QString &topicName, const QString &fieldName)
+{
+    const QString topic = topicName.trimmed();
+    const QString field = fieldName.trimmed();
+    return field.isEmpty() ? topic : QStringLiteral("%1.%2").arg(topic, field);
+}
+
+double fallbackNowMs()
+{
+    return static_cast<double>(QDateTime::currentMSecsSinceEpoch());
+}
+
+double stampToMs(const builtin_interfaces::msg::Time &stamp, double fallbackAbsoluteTimeMs)
+{
+    const double value = static_cast<double>(stamp.sec) * 1000.0
+                         + static_cast<double>(stamp.nanosec) * 1e-6;
+    return value > 0.0 ? value : fallbackAbsoluteTimeMs;
+}
+
+QVariantMap basePlotSample(double absoluteTimeMs)
+{
+    QVariantMap sample;
+    sample[QStringLiteral("stamp")] = absoluteTimeMs / 1000.0;
+    sample[QStringLiteral("absoluteTimeMs")] = absoluteTimeMs;
+    return sample;
+}
+
+void appendPlotField(QVariantList &fields,
+                     const QString &topicName,
+                     const QString &topicType,
+                     const QString &fieldName,
+                     const QString &unit)
+{
+    QVariantMap field;
+    field[QStringLiteral("topic")] = topicName;
+    field[QStringLiteral("topicType")] = topicType;
+    field[QStringLiteral("field")] = fieldName;
+    field[QStringLiteral("path")] = plotFieldPathForTopic(topicName, fieldName);
+    field[QStringLiteral("label")] = plotFieldPathForTopic(topicName, fieldName);
+    field[QStringLiteral("unit")] = unit;
+    fields.append(field);
+}
+
+template<typename NumericT>
+QVariantMap scalarSample(const QString &topicName, NumericT value, double fallbackAbsoluteTimeMs)
+{
+    QVariantMap sample = basePlotSample(fallbackAbsoluteTimeMs);
+    sample[plotFieldPathForTopic(topicName, QString())] = static_cast<double>(value);
+    return sample;
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const std_msgs::msg::Bool &msg, double fallbackAbsoluteTimeMs)
+{
+    return scalarSample(topicName, msg.data ? 1.0 : 0.0, fallbackAbsoluteTimeMs);
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const std_msgs::msg::Float32 &msg, double fallbackAbsoluteTimeMs)
+{
+    return scalarSample(topicName, msg.data, fallbackAbsoluteTimeMs);
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const std_msgs::msg::Float64 &msg, double fallbackAbsoluteTimeMs)
+{
+    return scalarSample(topicName, msg.data, fallbackAbsoluteTimeMs);
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const std_msgs::msg::Int8 &msg, double fallbackAbsoluteTimeMs)
+{
+    return scalarSample(topicName, msg.data, fallbackAbsoluteTimeMs);
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const std_msgs::msg::Int16 &msg, double fallbackAbsoluteTimeMs)
+{
+    return scalarSample(topicName, msg.data, fallbackAbsoluteTimeMs);
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const std_msgs::msg::Int32 &msg, double fallbackAbsoluteTimeMs)
+{
+    return scalarSample(topicName, msg.data, fallbackAbsoluteTimeMs);
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const std_msgs::msg::Int64 &msg, double fallbackAbsoluteTimeMs)
+{
+    return scalarSample(topicName, msg.data, fallbackAbsoluteTimeMs);
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const std_msgs::msg::UInt8 &msg, double fallbackAbsoluteTimeMs)
+{
+    return scalarSample(topicName, msg.data, fallbackAbsoluteTimeMs);
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const std_msgs::msg::UInt16 &msg, double fallbackAbsoluteTimeMs)
+{
+    return scalarSample(topicName, msg.data, fallbackAbsoluteTimeMs);
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const std_msgs::msg::UInt32 &msg, double fallbackAbsoluteTimeMs)
+{
+    return scalarSample(topicName, msg.data, fallbackAbsoluteTimeMs);
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const std_msgs::msg::UInt64 &msg, double fallbackAbsoluteTimeMs)
+{
+    return scalarSample(topicName, msg.data, fallbackAbsoluteTimeMs);
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const sensor_msgs::msg::Imu &msg, double fallbackAbsoluteTimeMs)
+{
+    QVariantMap sample = basePlotSample(stampToMs(msg.header.stamp, fallbackAbsoluteTimeMs));
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("angular_velocity.x"))] = msg.angular_velocity.x;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("angular_velocity.y"))] = msg.angular_velocity.y;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("angular_velocity.z"))] = msg.angular_velocity.z;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("linear_acceleration.x"))] = msg.linear_acceleration.x;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("linear_acceleration.y"))] = msg.linear_acceleration.y;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("linear_acceleration.z"))] = msg.linear_acceleration.z;
+    return sample;
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const sensor_msgs::msg::Temperature &msg, double fallbackAbsoluteTimeMs)
+{
+    QVariantMap sample = basePlotSample(stampToMs(msg.header.stamp, fallbackAbsoluteTimeMs));
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("temperature"))] = msg.temperature;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("variance"))] = msg.variance;
+    return sample;
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const sensor_msgs::msg::FluidPressure &msg, double fallbackAbsoluteTimeMs)
+{
+    QVariantMap sample = basePlotSample(stampToMs(msg.header.stamp, fallbackAbsoluteTimeMs));
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("fluid_pressure"))] = msg.fluid_pressure;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("variance"))] = msg.variance;
+    return sample;
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const sensor_msgs::msg::RelativeHumidity &msg, double fallbackAbsoluteTimeMs)
+{
+    QVariantMap sample = basePlotSample(stampToMs(msg.header.stamp, fallbackAbsoluteTimeMs));
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("relative_humidity"))] = msg.relative_humidity;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("variance"))] = msg.variance;
+    return sample;
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const sensor_msgs::msg::MagneticField &msg, double fallbackAbsoluteTimeMs)
+{
+    QVariantMap sample = basePlotSample(stampToMs(msg.header.stamp, fallbackAbsoluteTimeMs));
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("magnetic_field.x"))] = msg.magnetic_field.x;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("magnetic_field.y"))] = msg.magnetic_field.y;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("magnetic_field.z"))] = msg.magnetic_field.z;
+    return sample;
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const sensor_msgs::msg::BatteryState &msg, double fallbackAbsoluteTimeMs)
+{
+    QVariantMap sample = basePlotSample(stampToMs(msg.header.stamp, fallbackAbsoluteTimeMs));
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("voltage"))] = msg.voltage;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("temperature"))] = msg.temperature;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("current"))] = msg.current;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("charge"))] = msg.charge;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("capacity"))] = msg.capacity;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("design_capacity"))] = msg.design_capacity;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("percentage"))] = msg.percentage;
+    return sample;
+}
+
+QVariantMap vector3Sample(const QString &topicName, const geometry_msgs::msg::Vector3 &vector, double absoluteTimeMs)
+{
+    QVariantMap sample = basePlotSample(absoluteTimeMs);
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("x"))] = vector.x;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("y"))] = vector.y;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("z"))] = vector.z;
+    return sample;
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const geometry_msgs::msg::Vector3 &msg, double fallbackAbsoluteTimeMs)
+{
+    return vector3Sample(topicName, msg, fallbackAbsoluteTimeMs);
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const geometry_msgs::msg::Vector3Stamped &msg, double fallbackAbsoluteTimeMs)
+{
+    return vector3Sample(topicName, msg.vector, stampToMs(msg.header.stamp, fallbackAbsoluteTimeMs));
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const geometry_msgs::msg::Twist &msg, double fallbackAbsoluteTimeMs)
+{
+    QVariantMap sample = basePlotSample(fallbackAbsoluteTimeMs);
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("linear.x"))] = msg.linear.x;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("linear.y"))] = msg.linear.y;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("linear.z"))] = msg.linear.z;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("angular.x"))] = msg.angular.x;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("angular.y"))] = msg.angular.y;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("angular.z"))] = msg.angular.z;
+    return sample;
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const geometry_msgs::msg::TwistStamped &msg, double fallbackAbsoluteTimeMs)
+{
+    QVariantMap sample = sampleFromPlotMessage(topicName, msg.twist, stampToMs(msg.header.stamp, fallbackAbsoluteTimeMs));
+    return sample;
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const geometry_msgs::msg::Accel &msg, double fallbackAbsoluteTimeMs)
+{
+    QVariantMap sample = basePlotSample(fallbackAbsoluteTimeMs);
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("linear.x"))] = msg.linear.x;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("linear.y"))] = msg.linear.y;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("linear.z"))] = msg.linear.z;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("angular.x"))] = msg.angular.x;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("angular.y"))] = msg.angular.y;
+    sample[plotFieldPathForTopic(topicName, QStringLiteral("angular.z"))] = msg.angular.z;
+    return sample;
+}
+
+QVariantMap sampleFromPlotMessage(const QString &topicName, const geometry_msgs::msg::AccelStamped &msg, double fallbackAbsoluteTimeMs)
+{
+    QVariantMap sample = sampleFromPlotMessage(topicName, msg.accel, stampToMs(msg.header.stamp, fallbackAbsoluteTimeMs));
+    return sample;
+}
+
+template<typename MessageT>
+bool deserializeRecordedPlotSample(const rosbag2_storage::SerializedBagMessage &bagMessage,
+                                   const QString &topicName,
+                                   double fallbackAbsoluteTimeMs,
+                                   QVariantMap *sample)
+{
+    if (!sample || !bagMessage.serialized_data) {
+        return false;
+    }
+
+    MessageT message;
+    rclcpp::Serialization<MessageT> serializer;
+    rclcpp::SerializedMessage serializedMessage(*bagMessage.serialized_data);
+    serializer.deserialize_message(&serializedMessage, &message);
+    *sample = sampleFromPlotMessage(topicName, message, fallbackAbsoluteTimeMs);
+    return true;
+}
 }
 
 RosUiBridge::RosUiBridge(QObject *parent)
     : QObject(parent),
-      ros_status_("Waiting for /diagnostics and /perception image topics ...")
+      ros_status_("Waiting for /diagnostics and ROS topics ...")
 {
     playback_timer_ = new QTimer(this);
-    playback_timer_->setInterval(33);
+    playback_timer_->setInterval(kRecordedPlaybackUpdateIntervalMs);
     connect(playback_timer_, &QTimer::timeout, this, &RosUiBridge::playbackTick);
+
+    plot_update_timer_ = new QTimer(this);
+    plot_update_timer_->setInterval(kPlotUiUpdateIntervalMs);
+    connect(plot_update_timer_, &QTimer::timeout, this, &RosUiBridge::flushLivePlotSamples);
+    plot_update_timer_->start();
 
     node_ = std::make_shared<rclcpp::Node>("diagnostics_qml_ui_node");
 
@@ -52,29 +320,23 @@ RosUiBridge::RosUiBridge(QObject *parent)
             diagnosticsCallback(msg);
         });
 
-    imu_sub_ = node_->create_subscription<sensor_msgs::msg::Imu>(
-        kImuTopic, rclcpp::SensorDataQoS(),
-        [this](const sensor_msgs::msg::Imu::SharedPtr msg)
-        {
-            imuCallback(msg);
-        });
-
-    // /perception video topics are discovered automatically from the ROS graph.
-    video_topic_discovery_timer_ = node_->create_wall_timer(
+    // Video topics and plot topics are discovered automatically from the ROS graph.
+    topic_discovery_timer_ = node_->create_wall_timer(
         std::chrono::milliseconds(3000),
         [this]()
         {
             discoverVideoTopics();
+            discoverPlotTopics();
         });
-
 
     executor_ = std::make_unique<rclcpp::executors::SingleThreadedExecutor>();
     executor_->add_node(node_);
 
-    ros_status_ = "Subscribed: /diagnostics, /camera/camera/imu; scanning /perception image topics";
+    ros_status_ = "Subscribed: /diagnostics; scanning ROS topics";
     emit rosStatusChanged();
 
     discoverVideoTopics();
+    discoverPlotTopics();
 
     ros_thread_ = std::thread([this]()
     {
@@ -86,6 +348,7 @@ RosUiBridge::~RosUiBridge()
 {
     stopPlotRecording();
     setPlaybackPlaying(false);
+    stopPlotSubscriptions();
 
     if (executor_) {
         executor_->cancel();
@@ -259,6 +522,16 @@ QImage RosUiBridge::videoFrameImage(int slotIndex) const
 
     std::lock_guard<std::mutex> lock(video_frame_mutex_);
     return video_slots_[static_cast<size_t>(slotIndex)].frame.copy();
+}
+
+QVariantList RosUiBridge::plotTopics() const
+{
+    return plot_topics_;
+}
+
+QString RosUiBridge::plotTopicsStatus() const
+{
+    return plot_topics_status_;
 }
 
 QVariantList RosUiBridge::plotFieldOptions() const
@@ -447,7 +720,8 @@ void RosUiBridge::stopPlotRecording()
     emit plotStatusChanged();
 }
 
-void RosUiBridge::writePlotRecordingSample(const sensor_msgs::msg::Imu &msg)
+template<typename MessageT>
+void RosUiBridge::writePlotRecordingSample(const QString &topicName, const MessageT &msg, double absoluteTimeMs)
 {
     std::lock_guard<std::mutex> lock(plot_recording_mutex_);
     if (!plot_recording_ || !plot_bag_writer_) {
@@ -455,12 +729,12 @@ void RosUiBridge::writePlotRecordingSample(const sensor_msgs::msg::Imu &msg)
     }
 
     try {
-        rclcpp::Time timestamp(msg.header.stamp);
-        if (timestamp.nanoseconds() <= 0 && node_) {
-            timestamp = node_->now();
+        int64_t timestamp_ns = static_cast<int64_t>(std::llround(absoluteTimeMs * 1000000.0));
+        if (timestamp_ns <= 0 && node_) {
+            timestamp_ns = node_->now().nanoseconds();
         }
 
-        plot_bag_writer_->write(msg, std::string(kImuTopic), timestamp);
+        plot_bag_writer_->write(msg, topicName.toStdString(), rclcpp::Time(timestamp_ns));
         ++plot_recorded_message_count_;
     } catch (const std::exception &error) {
         plot_recording_ = false;
@@ -501,34 +775,30 @@ bool RosUiBridge::openRecordedPlotFile(const QString &filePath)
     return ok;
 }
 
-QVariantList RosUiBridge::plotFieldOptionsForPaths(const QStringList &paths)
-{
-    QVariantList result;
-    const QVariantList candidates = defaultPlotFieldOptions();
-    for (const QVariant &candidate : candidates) {
-        const QVariantMap field = candidate.toMap();
-        const QString path = field.value(QStringLiteral("path")).toString();
-        if (paths.contains(path)) {
-            result.append(field);
-        }
-    }
-    return result;
-}
-
 bool RosUiBridge::loadRecordedRosbag(const QString &filePath)
 {
     try {
         rosbag2_cpp::Reader reader;
         reader.open(filePath.toStdString());
 
-        QVariantList samples;
-        QStringList fieldPaths;
-        const QVariantList candidates = defaultPlotFieldOptions();
-        for (const QVariant &candidate : candidates) {
-            fieldPaths.append(candidate.toMap().value(QStringLiteral("path")).toString());
+        QMap<QString, QString> bagTopicTypes;
+        QVariantList availableFields;
+        const auto topicsAndTypes = reader.get_all_topics_and_types();
+        for (const auto &topicMetadata : topicsAndTypes) {
+            const QString topicName = QString::fromStdString(topicMetadata.name).trimmed();
+            const QString topicType = QString::fromStdString(topicMetadata.type).trimmed();
+            if (topicName.isEmpty() || topicType.isEmpty()) {
+                continue;
+            }
+
+            bagTopicTypes.insert(topicName, topicType);
+            const QVariantList fields = plotFieldOptionsForTopic(topicName, topicType);
+            for (const QVariant &field : fields) {
+                availableFields.append(field);
+            }
         }
 
-        rclcpp::Serialization<sensor_msgs::msg::Imu> serializer;
+        QVariantList samples;
         double bagStartMs = -1.0;
         double bagEndMs = -1.0;
 
@@ -538,6 +808,8 @@ bool RosUiBridge::loadRecordedRosbag(const QString &filePath)
                 continue;
             }
 
+            const QString topicName = QString::fromStdString(bagMessage->topic_name).trimmed();
+            const QString topicType = bagTopicTypes.value(topicName);
             const double messageTimeMs = static_cast<double>(bagMessage->recv_timestamp) / 1000000.0;
             if (messageTimeMs >= 0.0) {
                 if (bagStartMs < 0.0 || messageTimeMs < bagStartMs) {
@@ -548,20 +820,50 @@ bool RosUiBridge::loadRecordedRosbag(const QString &filePath)
                 }
             }
 
-            if (bagMessage->topic_name != kImuTopic) {
+            if (!isSupportedPlotType(topicType)) {
                 continue;
             }
 
-            sensor_msgs::msg::Imu imu;
-            rclcpp::SerializedMessage serializedMessage(*bagMessage->serialized_data);
-            serializer.deserialize_message(&serializedMessage, &imu);
+            QVariantMap sample;
+            bool decoded = false;
+#define DECODE_PLOT_SAMPLE(TYPE_STRING, MESSAGE_TYPE) \
+            if (!decoded && topicType == QStringLiteral(TYPE_STRING)) { \
+                decoded = deserializeRecordedPlotSample<MESSAGE_TYPE>(*bagMessage, topicName, messageTimeMs, &sample); \
+            }
+            DECODE_PLOT_SAMPLE("std_msgs/msg/Bool", std_msgs::msg::Bool)
+            DECODE_PLOT_SAMPLE("std_msgs/msg/Float32", std_msgs::msg::Float32)
+            DECODE_PLOT_SAMPLE("std_msgs/msg/Float64", std_msgs::msg::Float64)
+            DECODE_PLOT_SAMPLE("std_msgs/msg/Int8", std_msgs::msg::Int8)
+            DECODE_PLOT_SAMPLE("std_msgs/msg/Int16", std_msgs::msg::Int16)
+            DECODE_PLOT_SAMPLE("std_msgs/msg/Int32", std_msgs::msg::Int32)
+            DECODE_PLOT_SAMPLE("std_msgs/msg/Int64", std_msgs::msg::Int64)
+            DECODE_PLOT_SAMPLE("std_msgs/msg/UInt8", std_msgs::msg::UInt8)
+            DECODE_PLOT_SAMPLE("std_msgs/msg/UInt16", std_msgs::msg::UInt16)
+            DECODE_PLOT_SAMPLE("std_msgs/msg/UInt32", std_msgs::msg::UInt32)
+            DECODE_PLOT_SAMPLE("std_msgs/msg/UInt64", std_msgs::msg::UInt64)
+            DECODE_PLOT_SAMPLE("sensor_msgs/msg/Imu", sensor_msgs::msg::Imu)
+            DECODE_PLOT_SAMPLE("sensor_msgs/msg/Temperature", sensor_msgs::msg::Temperature)
+            DECODE_PLOT_SAMPLE("sensor_msgs/msg/FluidPressure", sensor_msgs::msg::FluidPressure)
+            DECODE_PLOT_SAMPLE("sensor_msgs/msg/RelativeHumidity", sensor_msgs::msg::RelativeHumidity)
+            DECODE_PLOT_SAMPLE("sensor_msgs/msg/MagneticField", sensor_msgs::msg::MagneticField)
+            DECODE_PLOT_SAMPLE("sensor_msgs/msg/BatteryState", sensor_msgs::msg::BatteryState)
+            DECODE_PLOT_SAMPLE("geometry_msgs/msg/Vector3", geometry_msgs::msg::Vector3)
+            DECODE_PLOT_SAMPLE("geometry_msgs/msg/Vector3Stamped", geometry_msgs::msg::Vector3Stamped)
+            DECODE_PLOT_SAMPLE("geometry_msgs/msg/Twist", geometry_msgs::msg::Twist)
+            DECODE_PLOT_SAMPLE("geometry_msgs/msg/TwistStamped", geometry_msgs::msg::TwistStamped)
+            DECODE_PLOT_SAMPLE("geometry_msgs/msg/Accel", geometry_msgs::msg::Accel)
+            DECODE_PLOT_SAMPLE("geometry_msgs/msg/AccelStamped", geometry_msgs::msg::AccelStamped)
+#undef DECODE_PLOT_SAMPLE
 
-            QVariantMap sample = sampleFromImu(imu, messageTimeMs);
-            samples.append(sample);
+            if (decoded && !sample.isEmpty()) {
+                samples.append(sample);
+            }
         }
 
         if (bagStartMs < 0.0 || bagEndMs < 0.0) {
             recorded_status_ = QStringLiteral("No messages found in bag: %1").arg(filePath);
+            recorded_available_plot_field_options_.clear();
+            recorded_plot_field_options_.clear();
             return false;
         }
 
@@ -579,7 +881,8 @@ bool RosUiBridge::loadRecordedRosbag(const QString &filePath)
 
         recorded_file_path_ = filePath;
         recorded_plot_samples_ = samples;
-        recorded_plot_field_options_ = samples.isEmpty() ? QVariantList{} : plotFieldOptionsForPaths(fieldPaths);
+        recorded_available_plot_field_options_ = availableFields;
+        recorded_plot_field_options_ = filterPlotFieldOptionsForSelectedTopics(recorded_available_plot_field_options_);
         recorded_bag_start_time_ms_ = bagStartMs;
         recorded_bag_end_time_ms_ = bagEndMs;
         playback_start_time_ms_ = bagStartMs;
@@ -587,7 +890,7 @@ bool RosUiBridge::loadRecordedRosbag(const QString &filePath)
         playback_current_time_ms_ = playback_start_time_ms_;
         recorded_status_ = samples.isEmpty()
                                ? QStringLiteral("Loaded bag: %1; no supported plot topics found").arg(filePath)
-                               : QStringLiteral("Loaded bag: %1 (%2 IMU samples)").arg(filePath).arg(samples.size());
+                               : QStringLiteral("Loaded bag: %1 (%2 plot samples)").arg(filePath).arg(samples.size());
         return true;
     } catch (const std::exception &error) {
         recorded_status_ = QStringLiteral("Cannot load rosbag / MCAP: %1").arg(QString::fromUtf8(error.what()));
@@ -736,6 +1039,303 @@ void RosUiBridge::playbackTick()
 
     playback_current_time_ms_ = next;
     emit playbackCurrentTimeMsChanged();
+}
+
+void RosUiBridge::refreshPlotTopics()
+{
+    discoverPlotTopics();
+}
+
+void RosUiBridge::setPlotTopicSelected(const QString &topicName, bool selected)
+{
+    const QString normalized = topicName.trimmed();
+    if (normalized.isEmpty()) {
+        return;
+    }
+
+    const bool alreadySelected = selected_plot_topic_names_.contains(normalized);
+    if (selected == alreadySelected) {
+        return;
+    }
+
+    if (selected) {
+        selected_plot_topic_names_.append(normalized);
+        selected_plot_topic_names_.removeDuplicates();
+        selected_plot_topic_names_.sort(Qt::CaseSensitive);
+    } else {
+        selected_plot_topic_names_.removeAll(normalized);
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(live_plot_mutex_);
+        pending_live_plot_samples_.clear();
+        pending_live_plot_status_topic_.clear();
+    }
+    imu_plot_samples_.clear();
+    plot_start_time_ = -1.0;
+
+    rebuildPlotTopicsModel();
+    rebuildPlotFieldOptions();
+    refreshPlotSubscriptions();
+    emit imuPlotSamplesChanged();
+}
+
+void RosUiBridge::discoverPlotTopics()
+{
+    if (!node_) {
+        return;
+    }
+
+    QStringList discovered_names;
+    QMap<QString, QString> discovered_types;
+
+    const auto topics_and_types = node_->get_topic_names_and_types();
+    for (const auto &entry : topics_and_types) {
+        const QString topic_name = QString::fromStdString(entry.first).trimmed();
+        if (topic_name.isEmpty()) {
+            continue;
+        }
+
+        discovered_names.append(topic_name);
+        if (!entry.second.empty()) {
+            discovered_types.insert(topic_name, QString::fromStdString(entry.second.front()).trimmed());
+        }
+    }
+
+    QMetaObject::invokeMethod(
+        this,
+        [this, discovered_names, discovered_types]()
+        {
+            applyDiscoveredPlotTopics(discovered_names, discovered_types);
+        },
+        Qt::QueuedConnection);
+}
+
+void RosUiBridge::applyDiscoveredPlotTopics(const QStringList &topicNames, const QMap<QString, QString> &topicTypes)
+{
+    QStringList discovered_names = topicNames;
+    discovered_names.removeDuplicates();
+    discovered_names.sort(Qt::CaseSensitive);
+
+    QMap<QString, QString> discovered_types;
+    for (const QString &name : discovered_names) {
+        discovered_types.insert(name, topicTypes.value(name));
+    }
+
+    const bool topicGraphChanged = plot_topic_names_ != discovered_names || plot_topic_types_ != discovered_types;
+    plot_topic_names_ = discovered_names;
+    plot_topic_types_ = discovered_types;
+
+    rebuildPlotTopicsModel();
+    if (topicGraphChanged) {
+        rebuildPlotFieldOptions();
+        refreshPlotSubscriptions();
+    }
+}
+
+void RosUiBridge::rebuildPlotTopicsModel()
+{
+    QVariantList topic_items;
+    int selectedCount = 0;
+    int plottableFieldCount = 0;
+
+    for (const QString &name : plot_topic_names_) {
+        const QString type = plot_topic_types_.value(name);
+        const QVariantList fields = plotFieldOptionsForTopic(name, type);
+        const bool selected = selected_plot_topic_names_.contains(name);
+        if (selected) {
+            ++selectedCount;
+            plottableFieldCount += fields.size();
+        }
+
+        QVariantMap item;
+        item[QStringLiteral("name")] = name;
+        item[QStringLiteral("type")] = type;
+        item[QStringLiteral("selected")] = selected;
+        item[QStringLiteral("plottable")] = !fields.isEmpty();
+        item[QStringLiteral("fieldCount")] = fields.size();
+        topic_items.append(item);
+    }
+
+    plot_topics_ = topic_items;
+    plot_topics_status_ = QStringLiteral("%1 topics, %2 selected, %3 plottable fields")
+                              .arg(plot_topic_names_.size())
+                              .arg(selectedCount)
+                              .arg(plottableFieldCount);
+    emit plotTopicsChanged();
+}
+
+QVariantList RosUiBridge::filterPlotFieldOptionsForSelectedTopics(const QVariantList &fields) const
+{
+    QVariantList result;
+    for (const QVariant &candidate : fields) {
+        const QVariantMap field = candidate.toMap();
+        const QString topic = field.value(QStringLiteral("topic")).toString();
+        if (!topic.isEmpty() && selected_plot_topic_names_.contains(topic)) {
+            result.append(field);
+        }
+    }
+    return result;
+}
+
+void RosUiBridge::rebuildPlotFieldOptions()
+{
+    QVariantList fields;
+    for (const QString &topic : selected_plot_topic_names_) {
+        const QString type = plot_topic_types_.value(topic);
+        const QVariantList topicFields = plotFieldOptionsForTopic(topic, type);
+        for (const QVariant &field : topicFields) {
+            fields.append(field);
+        }
+    }
+
+    plot_field_options_ = fields;
+    recorded_plot_field_options_ = filterPlotFieldOptionsForSelectedTopics(recorded_available_plot_field_options_);
+    emit plotFieldOptionsChanged();
+    emit recordedPlotFieldOptionsChanged();
+}
+
+void RosUiBridge::stopPlotSubscriptions()
+{
+    plot_subscriptions_.clear();
+}
+
+void RosUiBridge::refreshPlotSubscriptions()
+{
+    stopPlotSubscriptions();
+
+    if (!node_) {
+        return;
+    }
+
+    for (const QString &topic : selected_plot_topic_names_) {
+        const QString type = plot_topic_types_.value(topic);
+        if (isSupportedPlotType(type)) {
+            startPlotSubscriptionForTopic(topic, type);
+        }
+    }
+}
+
+template<typename MessageT>
+void RosUiBridge::startTypedPlotSubscription(const QString &topicName)
+{
+    const std::string topic = topicName.toStdString();
+    auto subscription = node_->create_subscription<MessageT>(
+        topic, rclcpp::SensorDataQoS(),
+        [this, topicName](typename MessageT::SharedPtr msg)
+        {
+            if (!msg) {
+                return;
+            }
+
+            const double fallbackAbsoluteTimeMs = node_
+                                                   ? static_cast<double>(node_->now().nanoseconds()) / 1000000.0
+                                                   : fallbackNowMs();
+            const QVariantMap sample = sampleFromPlotMessage(topicName, *msg, fallbackAbsoluteTimeMs);
+            bool absoluteTimeOk = false;
+            const double absoluteTimeValueMs = sample.value(QStringLiteral("absoluteTimeMs")).toDouble(&absoluteTimeOk);
+            const double absoluteTimeMs = absoluteTimeOk ? absoluteTimeValueMs : fallbackAbsoluteTimeMs;
+            writePlotRecordingSample(topicName, *msg, absoluteTimeMs);
+            appendLivePlotSample(sample, topicName);
+        });
+
+    plot_subscriptions_.insert(topicName, std::static_pointer_cast<rclcpp::SubscriptionBase>(subscription));
+}
+
+void RosUiBridge::startPlotSubscriptionForTopic(const QString &topicName, const QString &topicType)
+{
+#define START_PLOT_SUBSCRIPTION(TYPE_STRING, MESSAGE_TYPE) \
+    if (topicType == QStringLiteral(TYPE_STRING)) { \
+        startTypedPlotSubscription<MESSAGE_TYPE>(topicName); \
+        return; \
+    }
+    START_PLOT_SUBSCRIPTION("std_msgs/msg/Bool", std_msgs::msg::Bool)
+    START_PLOT_SUBSCRIPTION("std_msgs/msg/Float32", std_msgs::msg::Float32)
+    START_PLOT_SUBSCRIPTION("std_msgs/msg/Float64", std_msgs::msg::Float64)
+    START_PLOT_SUBSCRIPTION("std_msgs/msg/Int8", std_msgs::msg::Int8)
+    START_PLOT_SUBSCRIPTION("std_msgs/msg/Int16", std_msgs::msg::Int16)
+    START_PLOT_SUBSCRIPTION("std_msgs/msg/Int32", std_msgs::msg::Int32)
+    START_PLOT_SUBSCRIPTION("std_msgs/msg/Int64", std_msgs::msg::Int64)
+    START_PLOT_SUBSCRIPTION("std_msgs/msg/UInt8", std_msgs::msg::UInt8)
+    START_PLOT_SUBSCRIPTION("std_msgs/msg/UInt16", std_msgs::msg::UInt16)
+    START_PLOT_SUBSCRIPTION("std_msgs/msg/UInt32", std_msgs::msg::UInt32)
+    START_PLOT_SUBSCRIPTION("std_msgs/msg/UInt64", std_msgs::msg::UInt64)
+    START_PLOT_SUBSCRIPTION("sensor_msgs/msg/Imu", sensor_msgs::msg::Imu)
+    START_PLOT_SUBSCRIPTION("sensor_msgs/msg/Temperature", sensor_msgs::msg::Temperature)
+    START_PLOT_SUBSCRIPTION("sensor_msgs/msg/FluidPressure", sensor_msgs::msg::FluidPressure)
+    START_PLOT_SUBSCRIPTION("sensor_msgs/msg/RelativeHumidity", sensor_msgs::msg::RelativeHumidity)
+    START_PLOT_SUBSCRIPTION("sensor_msgs/msg/MagneticField", sensor_msgs::msg::MagneticField)
+    START_PLOT_SUBSCRIPTION("sensor_msgs/msg/BatteryState", sensor_msgs::msg::BatteryState)
+    START_PLOT_SUBSCRIPTION("geometry_msgs/msg/Vector3", geometry_msgs::msg::Vector3)
+    START_PLOT_SUBSCRIPTION("geometry_msgs/msg/Vector3Stamped", geometry_msgs::msg::Vector3Stamped)
+    START_PLOT_SUBSCRIPTION("geometry_msgs/msg/Twist", geometry_msgs::msg::Twist)
+    START_PLOT_SUBSCRIPTION("geometry_msgs/msg/TwistStamped", geometry_msgs::msg::TwistStamped)
+    START_PLOT_SUBSCRIPTION("geometry_msgs/msg/Accel", geometry_msgs::msg::Accel)
+    START_PLOT_SUBSCRIPTION("geometry_msgs/msg/AccelStamped", geometry_msgs::msg::AccelStamped)
+#undef START_PLOT_SUBSCRIPTION
+}
+
+void RosUiBridge::appendLivePlotSample(const QVariantMap &sample, const QString &topicName)
+{
+    if (sample.isEmpty()) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(live_plot_mutex_);
+    pending_live_plot_samples_.append(sample);
+    pending_live_plot_status_topic_ = topicName;
+    while (pending_live_plot_samples_.size() > kMaxPlotSamples) {
+        pending_live_plot_samples_.removeFirst();
+    }
+}
+
+void RosUiBridge::flushLivePlotSamples()
+{
+    QVariantList pending_samples;
+    QString latest_topic;
+    {
+        std::lock_guard<std::mutex> lock(live_plot_mutex_);
+        if (pending_live_plot_samples_.isEmpty()) {
+            return;
+        }
+        pending_samples.swap(pending_live_plot_samples_);
+        latest_topic = pending_live_plot_status_topic_;
+    }
+
+    for (const QVariant &item : pending_samples) {
+        QVariantMap stored_sample = item.toMap();
+        if (stored_sample.isEmpty()) {
+            continue;
+        }
+
+        const double stamp = stored_sample.value(QStringLiteral("stamp")).toDouble();
+        if (plot_start_time_ < 0.0) {
+            plot_start_time_ = stamp;
+        }
+
+        stored_sample[QStringLiteral("relativeTime")] = stamp - plot_start_time_;
+        imu_plot_samples_.append(stored_sample);
+    }
+
+    while (imu_plot_samples_.size() > kMaxPlotSamples) {
+        imu_plot_samples_.removeFirst();
+    }
+
+    bool recording_now = false;
+    QString recording_path;
+    size_t recorded_count = 0;
+    {
+        std::lock_guard<std::mutex> lock(plot_recording_mutex_);
+        recording_now = plot_recording_;
+        recording_path = plot_recording_path_;
+        recorded_count = plot_recorded_message_count_;
+    }
+
+    plot_status_ = recording_now
+                       ? QStringLiteral("Recording bag: %1 (%2 messages)").arg(recording_path).arg(recorded_count)
+                       : QStringLiteral("Receiving: %1 (%2 samples)").arg(latest_topic).arg(imu_plot_samples_.size());
+    emit imuPlotSamplesChanged();
+    emit plotStatusChanged();
 }
 
 void RosUiBridge::discoverVideoTopics()
@@ -1474,122 +2074,107 @@ void RosUiBridge::emitVideoSlotChanged(int slotIndex)
     emit videoSlotsChanged();
 }
 
-QVariantList RosUiBridge::defaultPlotFieldOptions()
+QVariantList RosUiBridge::plotFieldOptionsForTopic(const QString &topicName, const QString &topicType)
 {
     QVariantList fields;
 
-    auto append_field = [&fields](const QString &fieldName, const QString &label, const QString &unit)
+    auto append_scalar = [&fields, &topicName, &topicType](const QString &unit = QString())
     {
-        QVariantMap field;
-        field[QStringLiteral("field")] = fieldName;
-        field[QStringLiteral("path")] = plotTopicPath(fieldName);
-        field[QStringLiteral("label")] = label;
-        field[QStringLiteral("unit")] = unit;
-        fields.append(field);
+        appendPlotField(fields, topicName, topicType, QString(), unit);
     };
 
-    append_field(QStringLiteral("angular_velocity.x"), QStringLiteral("angular_velocity.x"), QStringLiteral("rad/s"));
-    append_field(QStringLiteral("angular_velocity.y"), QStringLiteral("angular_velocity.y"), QStringLiteral("rad/s"));
-    append_field(QStringLiteral("angular_velocity.z"), QStringLiteral("angular_velocity.z"), QStringLiteral("rad/s"));
-    append_field(QStringLiteral("linear_acceleration.x"), QStringLiteral("linear_acceleration.x"), QStringLiteral("m/s^2"));
-    append_field(QStringLiteral("linear_acceleration.y"), QStringLiteral("linear_acceleration.y"), QStringLiteral("m/s^2"));
-    append_field(QStringLiteral("linear_acceleration.z"), QStringLiteral("linear_acceleration.z"), QStringLiteral("m/s^2"));
+    auto append_vector3 = [&fields, &topicName, &topicType](const QString &prefix, const QString &unit)
+    {
+        appendPlotField(fields, topicName, topicType, prefix.isEmpty() ? QStringLiteral("x") : QStringLiteral("%1.x").arg(prefix), unit);
+        appendPlotField(fields, topicName, topicType, prefix.isEmpty() ? QStringLiteral("y") : QStringLiteral("%1.y").arg(prefix), unit);
+        appendPlotField(fields, topicName, topicType, prefix.isEmpty() ? QStringLiteral("z") : QStringLiteral("%1.z").arg(prefix), unit);
+    };
+
+    if (topicType == QStringLiteral("std_msgs/msg/Bool")) {
+        append_scalar();
+    } else if (topicType == QStringLiteral("std_msgs/msg/Float32")
+               || topicType == QStringLiteral("std_msgs/msg/Float64")
+               || topicType == QStringLiteral("std_msgs/msg/Int8")
+               || topicType == QStringLiteral("std_msgs/msg/Int16")
+               || topicType == QStringLiteral("std_msgs/msg/Int32")
+               || topicType == QStringLiteral("std_msgs/msg/Int64")
+               || topicType == QStringLiteral("std_msgs/msg/UInt8")
+               || topicType == QStringLiteral("std_msgs/msg/UInt16")
+               || topicType == QStringLiteral("std_msgs/msg/UInt32")
+               || topicType == QStringLiteral("std_msgs/msg/UInt64")) {
+        append_scalar();
+    } else if (topicType == QStringLiteral("sensor_msgs/msg/Imu")) {
+        append_vector3(QStringLiteral("angular_velocity"), QStringLiteral("rad/s"));
+        append_vector3(QStringLiteral("linear_acceleration"), QStringLiteral("m/s^2"));
+    } else if (topicType == QStringLiteral("sensor_msgs/msg/Temperature")) {
+        appendPlotField(fields, topicName, topicType, QStringLiteral("temperature"), QStringLiteral("deg C"));
+        appendPlotField(fields, topicName, topicType, QStringLiteral("variance"), QStringLiteral("deg C^2"));
+    } else if (topicType == QStringLiteral("sensor_msgs/msg/FluidPressure")) {
+        appendPlotField(fields, topicName, topicType, QStringLiteral("fluid_pressure"), QStringLiteral("Pa"));
+        appendPlotField(fields, topicName, topicType, QStringLiteral("variance"), QStringLiteral("Pa^2"));
+    } else if (topicType == QStringLiteral("sensor_msgs/msg/RelativeHumidity")) {
+        appendPlotField(fields, topicName, topicType, QStringLiteral("relative_humidity"), QStringLiteral("ratio"));
+        appendPlotField(fields, topicName, topicType, QStringLiteral("variance"), QStringLiteral("ratio^2"));
+    } else if (topicType == QStringLiteral("sensor_msgs/msg/MagneticField")) {
+        append_vector3(QStringLiteral("magnetic_field"), QStringLiteral("T"));
+    } else if (topicType == QStringLiteral("sensor_msgs/msg/BatteryState")) {
+        appendPlotField(fields, topicName, topicType, QStringLiteral("voltage"), QStringLiteral("V"));
+        appendPlotField(fields, topicName, topicType, QStringLiteral("temperature"), QStringLiteral("deg C"));
+        appendPlotField(fields, topicName, topicType, QStringLiteral("current"), QStringLiteral("A"));
+        appendPlotField(fields, topicName, topicType, QStringLiteral("charge"), QStringLiteral("Ah"));
+        appendPlotField(fields, topicName, topicType, QStringLiteral("capacity"), QStringLiteral("Ah"));
+        appendPlotField(fields, topicName, topicType, QStringLiteral("design_capacity"), QStringLiteral("Ah"));
+        appendPlotField(fields, topicName, topicType, QStringLiteral("percentage"), QStringLiteral("ratio"));
+    } else if (topicType == QStringLiteral("geometry_msgs/msg/Vector3")
+               || topicType == QStringLiteral("geometry_msgs/msg/Vector3Stamped")) {
+        append_vector3(QString(), QString());
+    } else if (topicType == QStringLiteral("geometry_msgs/msg/Twist")
+               || topicType == QStringLiteral("geometry_msgs/msg/TwistStamped")) {
+        append_vector3(QStringLiteral("linear"), QStringLiteral("m/s"));
+        append_vector3(QStringLiteral("angular"), QStringLiteral("rad/s"));
+    } else if (topicType == QStringLiteral("geometry_msgs/msg/Accel")
+               || topicType == QStringLiteral("geometry_msgs/msg/AccelStamped")) {
+        append_vector3(QStringLiteral("linear"), QStringLiteral("m/s^2"));
+        append_vector3(QStringLiteral("angular"), QStringLiteral("rad/s^2"));
+    }
 
     return fields;
 }
 
-QString RosUiBridge::plotTopicPath(const QString &fieldName)
+QString RosUiBridge::plotFieldPath(const QString &topicName, const QString &fieldName)
 {
-    return QStringLiteral("/camera/camera/imu.%1").arg(fieldName);
+    return plotFieldPathForTopic(topicName, fieldName);
 }
 
-QVariantMap RosUiBridge::sampleFromImu(const sensor_msgs::msg::Imu &msg, double fallbackAbsoluteTimeMs)
+bool RosUiBridge::isSupportedPlotType(const QString &topicType)
 {
-    double absoluteTimeMs = (static_cast<double>(msg.header.stamp.sec) * 1000.0)
-                            + (static_cast<double>(msg.header.stamp.nanosec) * 1e-6);
-    if (absoluteTimeMs <= 0.0 && fallbackAbsoluteTimeMs >= 0.0) {
-        absoluteTimeMs = fallbackAbsoluteTimeMs;
-    }
+    static const QStringList supported_types = {
+        QStringLiteral("std_msgs/msg/Bool"),
+        QStringLiteral("std_msgs/msg/Float32"),
+        QStringLiteral("std_msgs/msg/Float64"),
+        QStringLiteral("std_msgs/msg/Int8"),
+        QStringLiteral("std_msgs/msg/Int16"),
+        QStringLiteral("std_msgs/msg/Int32"),
+        QStringLiteral("std_msgs/msg/Int64"),
+        QStringLiteral("std_msgs/msg/UInt8"),
+        QStringLiteral("std_msgs/msg/UInt16"),
+        QStringLiteral("std_msgs/msg/UInt32"),
+        QStringLiteral("std_msgs/msg/UInt64"),
+        QStringLiteral("sensor_msgs/msg/Imu"),
+        QStringLiteral("sensor_msgs/msg/Temperature"),
+        QStringLiteral("sensor_msgs/msg/FluidPressure"),
+        QStringLiteral("sensor_msgs/msg/RelativeHumidity"),
+        QStringLiteral("sensor_msgs/msg/MagneticField"),
+        QStringLiteral("sensor_msgs/msg/BatteryState"),
+        QStringLiteral("geometry_msgs/msg/Vector3"),
+        QStringLiteral("geometry_msgs/msg/Vector3Stamped"),
+        QStringLiteral("geometry_msgs/msg/Twist"),
+        QStringLiteral("geometry_msgs/msg/TwistStamped"),
+        QStringLiteral("geometry_msgs/msg/Accel"),
+        QStringLiteral("geometry_msgs/msg/AccelStamped")
+    };
 
-    QVariantMap sample;
-    sample[QStringLiteral("stamp")] = absoluteTimeMs / 1000.0;
-    sample[QStringLiteral("absoluteTimeMs")] = absoluteTimeMs;
-    sample[QStringLiteral("/camera/camera/imu.angular_velocity.x")] = msg.angular_velocity.x;
-    sample[QStringLiteral("/camera/camera/imu.angular_velocity.y")] = msg.angular_velocity.y;
-    sample[QStringLiteral("/camera/camera/imu.angular_velocity.z")] = msg.angular_velocity.z;
-    sample[QStringLiteral("/camera/camera/imu.linear_acceleration.x")] = msg.linear_acceleration.x;
-    sample[QStringLiteral("/camera/camera/imu.linear_acceleration.y")] = msg.linear_acceleration.y;
-    sample[QStringLiteral("/camera/camera/imu.linear_acceleration.z")] = msg.linear_acceleration.z;
-    return sample;
-}
-
-void RosUiBridge::activatePublishedPlotFields(const QVariantMap &sample)
-{
-    bool changed = false;
-    const QVariantList candidates = defaultPlotFieldOptions();
-
-    for (const QVariant &candidate : candidates) {
-        const QVariantMap field = candidate.toMap();
-        const QString path = field.value(QStringLiteral("path")).toString();
-
-        if (path.isEmpty() || active_plot_field_paths_.contains(path) || !sample.contains(path)) {
-            continue;
-        }
-
-        active_plot_field_paths_.append(path);
-        plot_field_options_.append(field);
-        changed = true;
-    }
-
-    if (changed) {
-        emit plotFieldOptionsChanged();
-    }
-}
-
-void RosUiBridge::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
-{
-    if (!msg) {
-        return;
-    }
-
-    const QVariantMap sample = sampleFromImu(*msg);
-    const double stamp = sample.value(QStringLiteral("stamp")).toDouble();
-    writePlotRecordingSample(*msg);
-
-    QMetaObject::invokeMethod(
-        this,
-        [this, sample, stamp]()
-        {
-            if (plot_start_time_ < 0.0) {
-                plot_start_time_ = stamp;
-            }
-
-            activatePublishedPlotFields(sample);
-
-            QVariantMap stored_sample = sample;
-            stored_sample[QStringLiteral("relativeTime")] = stamp - plot_start_time_;
-            imu_plot_samples_.append(stored_sample);
-            while (imu_plot_samples_.size() > kMaxPlotSamples) {
-                imu_plot_samples_.removeFirst();
-            }
-
-            bool recording_now = false;
-            QString recording_path;
-            size_t recorded_count = 0;
-            {
-                std::lock_guard<std::mutex> lock(plot_recording_mutex_);
-                recording_now = plot_recording_;
-                recording_path = plot_recording_path_;
-                recorded_count = plot_recorded_message_count_;
-            }
-
-            plot_status_ = recording_now
-                               ? QStringLiteral("Recording bag: %1 (%2 messages)").arg(recording_path).arg(recorded_count)
-                               : QStringLiteral("Receiving: /camera/camera/imu (%1 samples)").arg(imu_plot_samples_.size());
-            emit imuPlotSamplesChanged();
-            emit plotStatusChanged();
-        },
-        Qt::QueuedConnection);
+    return supported_types.contains(topicType);
 }
 
 QImage RosUiBridge::imageMessageToQImage(const sensor_msgs::msg::Image &msg, QString *errorMessage)

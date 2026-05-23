@@ -9,6 +9,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2)
@@ -65,6 +66,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   rclcpp::rclcpp
   ${diagnostic_msgs_TARGETS}
   ${sensor_msgs_TARGETS}
+  ${geometry_msgs_TARGETS}
   ${std_msgs_TARGETS}
   ${rosbag2_cpp_TARGETS}
   ${rosbag2_cpp_LIBRARIES}

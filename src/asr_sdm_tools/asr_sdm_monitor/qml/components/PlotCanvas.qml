@@ -311,6 +311,8 @@ Rectangle {
 
             const selectedSeries = normalizedSeries()
             const source = root.samples || []
+            const maxDrawPointsPerSeries = 1800
+            const sourceStep = Math.max(1, Math.floor(source.length / maxDrawPointsPerSeries))
             if (selectedSeries.length === 0 || source.length === 0) {
                 root.chartLeft = 0
                 root.chartRight = 0
@@ -329,7 +331,7 @@ Rectangle {
                 const seriesConfig = selectedSeries[s]
                 const fieldPath = seriesConfig.field
                 const points = []
-                for (let i = 0; i < source.length; ++i) {
+                for (let i = 0; i < source.length; i += sourceStep) {
                     const sample = source[i]
                     const x = root.plotMode === "xy"
                               ? Number(sample[root.xField])
@@ -404,11 +406,13 @@ Rectangle {
             if (root.plotMode === "xy" && root.axisScaleMode === "square") {
                 const xCenter = (minX + maxX) / 2
                 const yCenter = (minY + maxY) / 2
-                const halfRange = Math.max(maxX - minX, maxY - minY) / 2
-                minX = xCenter - halfRange
-                maxX = xCenter + halfRange
-                minY = yCenter - halfRange
-                maxY = yCenter + halfRange
+                const equalUnitRange = Math.max((maxX - minX) / chartW, (maxY - minY) / chartH)
+                const halfXRange = equalUnitRange * chartW / 2
+                const halfYRange = equalUnitRange * chartH / 2
+                minX = xCenter - halfXRange
+                maxX = xCenter + halfXRange
+                minY = yCenter - halfYRange
+                maxY = yCenter + halfYRange
             }
 
             root.autoMinX = minX
@@ -622,7 +626,7 @@ Rectangle {
 
         Text {
             anchors.centerIn: parent
-            text: "Reset"
+            text: I18n.t(root.language, "resetView")
             font.pixelSize: 12
             font.bold: true
             color: resetMouse.containsMouse ? root.appPalette.accentText : root.appPalette.textSecondary

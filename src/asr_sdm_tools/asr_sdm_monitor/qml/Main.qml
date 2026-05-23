@@ -87,7 +87,7 @@ ApplicationWindow {
                     focusPolicy: Qt.NoFocus
                     ToolTip.visible: hovered
                     ToolTip.delay: 500
-                    ToolTip.text: "Minimize"
+                    ToolTip.text: I18n.t(window.currentLanguage, "minimize")
                     onClicked: window.showMinimized()
 
                     background: Rectangle {
@@ -122,7 +122,7 @@ ApplicationWindow {
                     focusPolicy: Qt.NoFocus
                     ToolTip.visible: hovered
                     ToolTip.delay: 500
-                    ToolTip.text: window.visibility === Window.Maximized ? "Restore Down" : "Maximize"
+                    ToolTip.text: window.visibility === Window.Maximized ? I18n.t(window.currentLanguage, "restoreDown") : I18n.t(window.currentLanguage, "maximize")
                     onClicked: {
                         if (window.visibility === Window.Maximized || window.visibility === Window.FullScreen) {
                             window.showNormal()
@@ -190,7 +190,7 @@ ApplicationWindow {
                     focusPolicy: Qt.NoFocus
                     ToolTip.visible: hovered
                     ToolTip.delay: 500
-                    ToolTip.text: "Close"
+                    ToolTip.text: I18n.t(window.currentLanguage, "close")
                     onClicked: {
                         window.close()
                         Qt.quit()
