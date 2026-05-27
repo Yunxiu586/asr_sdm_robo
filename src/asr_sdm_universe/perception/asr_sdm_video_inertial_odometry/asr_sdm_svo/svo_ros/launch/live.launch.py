@@ -31,20 +31,75 @@ def generate_launch_description():
     # Declare launch arguments
     cam_topic_arg = DeclareLaunchArgument(
         'cam_topic',
+        default_value='/sensing/camera/realsense/color/image_raw',
+        description='Camera image topic (from asr_sdm_camera_realsense_d405 node)'
+    )
+
+    imu_topic_arg = DeclareLaunchArgument(
+        'imu_topic',
+        default_value='/sensing/imu/imu_filtered',
+        description='IMU topic (from asr_sdm_imu_hiwonder_10axis node)'
+    )
+
+    image_topic_in_arg = DeclareLaunchArgument(
+        'image_topic_in',
         default_value='/camera/image_raw',
-        description='Camera topic to subscribe to'
+        description='Input camera image topic (from hardware driver or bag)'
+    )
+
+    camera_info_topic_in_arg = DeclareLaunchArgument(
+        'camera_info_topic_in',
+        default_value='/camera/camera_info',
+        description='Input camera info topic'
+    )
+
+    imu_topic_in_arg = DeclareLaunchArgument(
+        'imu_topic_in',
+        default_value='/imu/data',
+        description='Input IMU topic'
+    )
+
+    camera_node = Node(
+        package='svo_ros',
+        executable='camera',
+        name='asr_sdm_camera_realsense_d405',
+        output='screen',
+        parameters=[{
+            'image_topic_in': LaunchConfiguration('image_topic_in'),
+            'camera_info_topic_in': LaunchConfiguration('camera_info_topic_in'),
+            'image_topic_out': '/sensing/camera/realsense/color/image_raw',
+            'camera_info_topic_out': '/sensing/camera/realsense/color/camera_info',
+        }],
+    )
+
+    imu_node = Node(
+        package='svo_ros',
+        executable='imu',
+        name='asr_sdm_imu_hiwonder_10axis',
+        output='screen',
+        parameters=[{
+            'imu_topic_in': LaunchConfiguration('imu_topic_in'),
+            'imu_topic_out_raw': '/sensing/imu/imu_raw',
+            'imu_topic_out_filtered': '/sensing/imu/imu_filtered',
+        }],
     )
 
     svo_node = Node(
         package='svo_ros',
         executable='vo',
-        name='svo',
+        name='asr_sdm_video_inertial_odometry',
         output='screen',
         parameters=[node_parameters],
     )
 
     return LaunchDescription([
+        image_topic_in_arg,
+        camera_info_topic_in_arg,
+        imu_topic_in_arg,
         cam_topic_arg,
+        imu_topic_arg,
+        camera_node,
+        imu_node,
         svo_node,
     ])
 

@@ -116,7 +116,7 @@ private:
 // Constructor
 // =============================================================================
 VoNode::VoNode()
-  : Node("svo")
+  : Node("asr_sdm_video_inertial_odometry")
 {
   publish_markers_      = vk::getParam<bool>(this, "publish_markers", true);
   publish_dense_input_  = vk::getParam<bool>(this, "publish_dense_input", false);

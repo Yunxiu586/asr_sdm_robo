@@ -49,24 +49,24 @@ Visualizer::Visualizer(rclcpp::Node::SharedPtr node)
   // Initialize ROS2 Publishers
   // ---------------------------------------------------------------------------
   // Keyframe visualization markers (camera frustums)
-  pub_frames_ = node_->create_publisher<visualization_msgs::msg::Marker>("svo/keyframes", 10);
+  pub_frames_ = node_->create_publisher<visualization_msgs::msg::Marker>("localization/video_inertial_odom/keyframes", 10);
 
   // 3D point cloud and trajectory markers (large queue for many points)
-  pub_points_ = node_->create_publisher<visualization_msgs::msg::Marker>("svo/points", 1000);
+  pub_points_ = node_->create_publisher<visualization_msgs::msg::Marker>("localization/video_inertial_odom/points", 1000);
 
   // Camera pose with 6x6 covariance matrix
   pub_pose_ =
-    node_->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("svo/pose", 10);
+    node_->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("localization/video_inertial_odom/pose", 10);
 
   // Trajectory polyline (nav_msgs/Path) — ORB-SLAM style path in world frame
-  pub_trajectory_ = node_->create_publisher<nav_msgs::msg::Path>("svo/trajectory", 10);
+  pub_trajectory_ = node_->create_publisher<nav_msgs::msg::Path>("localization/video_inertial_odom/trajectory", 10);
   trajectory_msg_.header.frame_id = "world";
 
   // SLAM status information (stage, tracking quality, num matches, etc.)
-  pub_info_ = node_->create_publisher<asr_sdm_perception_msgs::msg::Info>("svo/info", 10);
+  pub_info_ = node_->create_publisher<asr_sdm_perception_msgs::msg::Info>("localization/video_inertial_odom/info", 10);
 
   // Dense reconstruction input (image + pose + depth range)
-  pub_dense_ = node_->create_publisher<asr_sdm_perception_msgs::msg::DenseInput>("svo/dense_input", 10);
+  pub_dense_ = node_->create_publisher<asr_sdm_perception_msgs::msg::DenseInput>("localization/video_inertial_odom/dense_input", 10);
 
   // ---------------------------------------------------------------------------
   // Initialize TF2 Broadcaster
@@ -79,7 +79,7 @@ Visualizer::Visualizer(rclcpp::Node::SharedPtr node)
   // ---------------------------------------------------------------------------
   // Uses image_transport for efficient image streaming (supports compressed)
   image_transport::ImageTransport it(node_);
-  pub_images_ = it.advertise("svo/image", 10);
+  pub_images_ = it.advertise("localization/video_inertial_odom/image", 10);
 }
 
 // =============================================================================

@@ -120,6 +120,19 @@ ament_target_dependencies(benchmark
   cv_bridge
 )
 
+add_executable(imu src/imu_node.cpp)
+ament_target_dependencies(imu
+  rclcpp
+  sensor_msgs
+)
+
+add_executable(camera src/camera_node.cpp)
+ament_target_dependencies(camera
+  rclcpp
+  sensor_msgs
+  image_transport
+)
+
 # Install
 install(TARGETS svo_visualizer
   EXPORT svo_rosTargets
@@ -128,7 +141,7 @@ install(TARGETS svo_visualizer
   RUNTIME DESTINATION bin
 )
 
-install(TARGETS vo vio benchmark
+install(TARGETS vo vio benchmark imu camera
   DESTINATION lib/${PROJECT_NAME}
 )
 
