@@ -78,7 +78,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /svo/keyframes
+        Value: /localization/video_inertial_odom/keyframes
       Value: true
     - Class: rviz_default_plugins/Marker
       Enabled: true
@@ -91,7 +91,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /svo/points
+        Value: /localization/video_inertial_odom/points
       Value: true
     - Class: rviz_default_plugins/Image
       Enabled: true
@@ -105,7 +105,27 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /svo/image
+        Value: /localization/video_inertial_odom/image
+      Value: true
+    - Class: rviz_default_plugins/Pose
+      Enabled: true
+      Name: Pose
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /localization/video_inertial_odom/pose
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Enabled: true
+      Name: Trajectory
+      Topic:
+        Depth: 100
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /localization/video_inertial_odom/trajectory
       Value: true
   Enabled: true
   Global Options:

@@ -23,8 +23,8 @@ def generate_launch_description():
     # Declare launch arguments
     cam_topic_arg = DeclareLaunchArgument(
         'cam_topic',
-        default_value='/camera/image_raw',
-        description='Camera topic to subscribe to'
+        default_value='/sensing/camera/realsense/color/image_raw',
+        description='Camera image topic (typically from asr_sdm_camera_realsense_d405 node)'
     )
 
     rviz_arg = DeclareLaunchArgument(
@@ -77,7 +77,7 @@ def generate_launch_description():
 
     imu_topic_arg = DeclareLaunchArgument(
         'imu_topic',
-        default_value='/imu/data',
+        default_value='/sensing/imu/imu_filtered',
         description='IMU ROS 2 topic name'
     )
 
@@ -109,7 +109,7 @@ def generate_launch_description():
     svo_node = Node(
         package='svo_ros',
         executable='vo',
-        name='asr_sdm_svo',
+        name='asr_sdm_video_inertial_odometry',
         output='screen',
         parameters=[
             camera_yaml_path,
@@ -183,6 +183,33 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('rviz_sw'))
     )
 
+    # Camera node: subscribes to bag topics, republishes to sensing namespace
+    camera_node = Node(
+        package='svo_ros',
+        executable='camera',
+        name='asr_sdm_camera_realsense_d405',
+        output='screen',
+        parameters=[{
+            'image_topic_in': '/camera/image_raw',
+            'camera_info_topic_in': '/camera/camera_info',
+            'image_topic_out': '/sensing/camera/realsense/color/image_raw',
+            'camera_info_topic_out': '/sensing/camera/realsense/color/camera_info',
+        }],
+    )
+
+    # IMU node: subscribes to bag IMU, republishes raw + filtered
+    imu_node = Node(
+        package='svo_ros',
+        executable='imu',
+        name='asr_sdm_imu_hiwonder_10axis',
+        output='screen',
+        parameters=[{
+            'imu_topic_in': '/imu/data',
+            'imu_topic_out_raw': '/sensing/imu/imu_raw',
+            'imu_topic_out_filtered': '/sensing/imu/imu_filtered',
+        }],
+    )
+
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',
@@ -226,6 +253,8 @@ def generate_launch_description():
         env_gallium,
         env_gl_version,
         env_qt_gl,
+        camera_node,
+        imu_node,
         svo_node,
         rviz_node,
         world_to_cam_tf,

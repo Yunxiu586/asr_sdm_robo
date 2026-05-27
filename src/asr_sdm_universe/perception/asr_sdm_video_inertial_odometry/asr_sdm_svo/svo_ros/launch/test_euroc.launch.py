@@ -102,7 +102,7 @@ def generate_launch_description():
     svo_node = Node(
         package='svo_ros',
         executable='vo',
-        name='svo',
+        name='asr_sdm_video_inertial_odometry',
         output='screen',
         parameters=[node_parameters],
     )
