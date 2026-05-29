@@ -4,23 +4,25 @@
 #include <geometry_msgs/msg/twist.hpp>
 #include <sensor_msgs/msg/joy.hpp>
 
+#include <algorithm>
+
 class JoystickTeleop : public rclcpp::Node
 {
 public:
   JoystickTeleop() : Node("joystick_teleop")
   {
     // Declare parameters
-    this->declare_parameter<int>("linear_axis", 1);   // left joystick up/down
-    this->declare_parameter<int>("angular_axis", 0);  // left joystick left/right
-    this->declare_parameter<double>("linear_scale", 0.5);
-    this->declare_parameter<double>("angular_scale", 1.0);
+    this->declare_parameter<int>("linear_axis", 1);
+    this->declare_parameter<int>("angular_axis", 3);
+    this->declare_parameter<double>("linear_scale", 0.12);
+    this->declare_parameter<double>("angular_scale", 0.5);
 
     // Create subscriber
     joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
       "joy", 10, std::bind(&JoystickTeleop::joy_callback, this, std::placeholders::_1));
 
     // Create publisher
-    pub_control_cmd_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
+    pub_control_cmd_ = this->create_publisher<geometry_msgs::msg::Twist>("/asr_sdm/cmd_vel", 10);
 
     RCLCPP_INFO(this->get_logger(), "Joystick Teleop Node started.");
   }
@@ -36,7 +38,7 @@ private:
     double angular_scale = this->get_parameter("angular_scale").as_double();
 
     if (msg->axes.size() > static_cast<size_t>(linear_axis)) {
-      twist.linear.x = msg->axes[linear_axis] * linear_scale;
+      twist.linear.x = std::max(0.0, static_cast<double>(msg->axes[linear_axis])) * linear_scale;
     }
     if (msg->axes.size() > static_cast<size_t>(angular_axis)) {
       twist.angular.z = msg->axes[angular_axis] * angular_scale;
