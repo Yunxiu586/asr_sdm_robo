@@ -1,7 +1,7 @@
 #ifndef FRONT_UNIT_FOLLOWING_CONTROLLER_HPP_
 #define FRONT_UNIT_FOLLOWING_CONTROLLER_HPP_
 
-#include "types.hpp"
+#include "asr_sdm_controller/types.hpp"
 
 namespace asr
 {

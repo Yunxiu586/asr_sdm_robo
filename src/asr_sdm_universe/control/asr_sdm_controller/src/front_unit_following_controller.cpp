@@ -1,38 +1,9 @@
-#include "front_unit_following/front_unit_following_controller.hpp"
+#include "asr_sdm_controller/front_unit_following_controller.hpp"
 
 #include <cmath>
 
 namespace asr
 {
-
-struct HeadCommand
-{
-  double linear_velocity;
-  double angular_velocity;
-};
-
-struct JointState
-{
-  std::vector<double> phi;
-};
-
-struct JointVelocity
-{
-  std::vector<double> phi_dot;
-};
-
-struct ScrewVelocity
-{
-  std::vector<double> theta_dot;
-};
-
-struct RobotParameters
-{
-  double link_length;
-  double screw_radius;
-
-  std::vector<double> alpha;
-};
 
 FrontUnitFollowingController::FrontUnitFollowingController(const RobotParameters & params)
 : params_(params)
@@ -65,15 +36,14 @@ JointVelocity FrontUnitFollowingController::computeJointVelocity(
 
   for (size_t i = 0; i < num_joints; ++i) {
     const double phi = state.phi[i];
+    const double omega_gain = (i == 0) ? (2.0 * std::cos(phi) + 1.0) : (std::cos(phi) + 1.0);
 
-    const double next_psi_dot =
-      -(2.0 / L) * v_bar[i] * std::sin(phi) - psi_dot[i] * (std::cos(phi) + 1.0);
+    output.phi_dot[i] = -(2.0 / L) * v_bar[i] * std::sin(phi) - psi_dot[i] * omega_gain;
 
-    output.phi_dot[i] = next_psi_dot - psi_dot[i];
+    psi_dot[i + 1] = psi_dot[i] + output.phi_dot[i];
 
-    psi_dot[i + 1] = next_psi_dot;
-
-    v_bar[i + 1] = v_bar[i] * std::cos(phi) - (L / 2.0) * psi_dot[i] * std::sin(phi);
+    const double link_scale = (i == 0) ? L : 0.5 * L;
+    v_bar[i + 1] = v_bar[i] * std::cos(phi) - link_scale * psi_dot[i] * std::sin(phi);
   }
 
   return output;
