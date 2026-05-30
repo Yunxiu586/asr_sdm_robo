@@ -1,0 +1,30 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Enabled: true
+      Name: Grid
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: occupied_map_3d
+      Topic:
+        Value: /esdf_map/occupied_map_3d
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: astar_path_marker
+      Topic:
+        Value: /planning/astar_path_marker
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: trajectory_marker
+      Topic:
+        Value: /planning/trajectory_marker
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: start_goal_marker
+      Topic:
+        Value: /planning/start_goal_marker
+  Fixed Frame: world

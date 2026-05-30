@@ -46,3 +46,40 @@ _For more examples, usage and FAQ, please refer to the [Wiki][wiki].
 
 <!-- Markdown link & img_ dfn's -->
 [wiki]: https://github.com/hlx1996/Fiesta/wiki
+
+## Optional final fixed map
+
+The original online ESDF behavior is unchanged by default.
+To build one fixed global map after a bag finishes playing, enable:
+
+```yaml
+esdf_map.final_map_enable: true
+esdf_map.final_map_input_timeout: 3.0
+esdf_map.final_map_freeze_after_build: true
+esdf_map.final_map_force_global_visualization: true
+```
+
+Recommended bag playback for a final map:
+
+```sh
+ros2 bag play /home/yunxiu/vo_esdf_inputs --rate 1.0
+```
+
+Do not use `--loop` when generating the final fixed map. After the input messages stop for
+`final_map_input_timeout` seconds, the node rebuilds the global ESDF over the whole map and keeps
+publishing the fixed result on:
+
+```text
+/esdf_map/occupancy_inflate
+/esdf_map/occupied_map_3d
+/esdf_map/esdf_3d
+```
+
+For `input_mode: "vo_sparse"`, keep:
+
+```yaml
+esdf_map.final_map_rebuild_inflation_from_occupancy: false
+```
+
+because VO sparse points are directly written into `occupancy_buffer_inflate_`. For depth/raycast
+input, it can be set to `true` if you want to rebuild the inflated map from the raw occupancy buffer.
