@@ -28,7 +28,10 @@
 
 #include <Eigen/Eigen>
 #include <Eigen/StdVector>
+#include <chrono>
 #include <cv_bridge/cv_bridge.hpp>
+#include <geometry_msgs/msg/point.hpp>
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <iostream>
 #include <memory>
@@ -38,8 +41,10 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <std_msgs/msg/color_rgba.hpp>
 #include <sensor_msgs/image_encodings.hpp>
 #include <tuple>
+#include <unordered_map>
 #include <visualization_msgs/msg/marker.hpp>
 
 #include <message_filters/subscriber.h>
@@ -85,6 +90,12 @@ struct MappingParameters {
   int pose_type_;
   string map_input_;  // 1: pose+depth; 2: odom + cloud
 
+  /* input topics and input mode */
+  string input_mode_;
+  string depth_topic_, pose_topic_, odom_topic_, cloud_topic_;
+  string vo_pose_topic_, vo_points_topic_, vo_points_ns_filter_;
+  bool vo_points_accumulate_;
+
   /* camera parameters */
   double cx_, cy_, fx_, fy_;
 
@@ -107,10 +118,25 @@ struct MappingParameters {
 
   /* visualization and computation time display */
   double esdf_slice_height_, visualization_truncate_height_, virtual_ceil_height_, ground_height_;
+  double esdf_3d_min_distance_, esdf_3d_max_distance_;
+  int esdf_3d_stride_;
   bool show_esdf_time_, show_occ_time_;
+  bool publish_esdf_3d_, esdf_3d_local_only_, esdf_3d_publish_negative_distance_;
+
+  /* occupied voxel map visualization */
+  double occupied_map_3d_alpha_;
+  int occupied_map_3d_stride_;
+  bool publish_occupied_map_3d_, occupied_map_3d_local_only_, occupied_map_3d_use_inflated_;
 
   /* active mapping */
   double unknown_flag_;
+
+  /* offline final fixed map */
+  bool final_map_enable_;
+  bool final_map_freeze_after_build_;
+  bool final_map_force_global_visualization_;
+  bool final_map_rebuild_inflation_from_occupancy_;
+  double final_map_input_timeout_;
 };
 
 // intermediate mapping data for fusion, esdf
@@ -142,6 +168,12 @@ struct MappingData {
   bool occ_need_update_, local_updated_, esdf_need_update_;
   bool has_first_depth_;
   bool has_odom_, has_cloud_;
+
+  // offline final fixed map state
+  bool final_map_input_received_;
+  bool final_map_ready_;
+  bool final_map_building_;
+  std::chrono::steady_clock::time_point last_input_wall_time_;
 
   // depth image projected point cloud
 
@@ -214,6 +246,8 @@ public:
   void publishMap();
   void publishMapInflate(bool all_info = false);
   void publishESDF();
+  void publishESDF3D();
+  void publishOccupiedMap3D();
   void publishUpdateRange();
 
   void publishUnknown();
@@ -247,11 +281,21 @@ private:
   void cloudCallback(sensor_msgs::msg::PointCloud2::ConstSharedPtr msg);
   void poseCallback(geometry_msgs::msg::PoseStamped::ConstSharedPtr pose);
   void odomCallback(nav_msgs::msg::Odometry::ConstSharedPtr odom);
+  void voPoseCallback(geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr pose);
+  void voPointsCallback(visualization_msgs::msg::Marker::ConstSharedPtr marker);
+  void insertPointCloud(const pcl::PointCloud<pcl::PointXYZ> & latest_cloud);
 
   // update occupancy by raycasting, and update ESDF
   void updateOccupancyCallback();
   void updateESDFCallback();
   void visCallback();
+
+  // offline final fixed map
+  void finalMapTimerCallback();
+  void notifyInputReceived();
+  bool finalMapFrozen() const;
+  void buildFinalGlobalMap();
+  void rebuildGlobalInflatedMapFromOccupancy();
 
   // main update process
   void projectDepthImage();
@@ -283,10 +327,16 @@ private:
 
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr indep_cloud_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr indep_odom_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr vo_pose_sub_;
+  rclcpp::Subscription<visualization_msgs::msg::Marker>::SharedPtr vo_points_sub_;
+
+  std::unordered_map<std::string, std::vector<Eigen::Vector3d>> vo_marker_points_;
 
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr map_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr esdf_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr esdf_3d_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr map_inf_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr occupied_map_3d_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr update_range_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr unknown_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr depth_pub_;
@@ -294,6 +344,7 @@ private:
   rclcpp::TimerBase::SharedPtr occ_timer_;
   rclcpp::TimerBase::SharedPtr esdf_timer_;
   rclcpp::TimerBase::SharedPtr vis_timer_;
+  rclcpp::TimerBase::SharedPtr final_map_timer_;
 
   //
   uniform_real_distribution<double> rand_noise_;

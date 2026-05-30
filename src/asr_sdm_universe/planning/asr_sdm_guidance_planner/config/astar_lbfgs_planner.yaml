@@ -1,0 +1,56 @@
+astar_lbfgs_trajectory_planner:
+  ros__parameters:
+    frame_id: "world"
+
+    topics.map: "/esdf_map/occupancy_inflate"
+    topics.clicked_point: "/clicked_point"
+    topics.start_point: "/planning/start"
+    topics.goal_point: "/planning/goal"
+    topics.initialpose: "/initialpose"
+    topics.goal_pose: "/goal_pose"
+
+    # Keep these consistent with asr_sdm_esdf_map/config/esdf_map_config.yaml.
+    map.resolution: 0.15
+    map.origin_x: -10.0
+    map.origin_y: -10.0
+    map.origin_z: -1.0
+    map.size_x: 20.0
+    map.size_y: 20.0
+    map.size_z: 5.0
+
+    # /esdf_map/occupancy_inflate only contains occupied voxels.
+    # For a fixed offline map, unknown voxels are treated as free by default.
+    map.unknown_as_occupied: false
+    map.clear_before_integrate: true
+    map.auto_compute_esdf_on_map: true
+
+    # The fixed-map publisher may repeatedly publish the same cloud.
+    # This avoids recomputing the internal ESDF every visualization cycle.
+    map.skip_repeated_map_with_same_point_count: true
+
+    # RViz Publish Point usually provides a z value from the clicked 3D point.
+    # If you use 2D Pose Estimate / 2D Goal Pose, default_planning_z is used.
+    selection.clicked_point_use_msg_z: true
+    selection.default_planning_z: 0.5
+    selection.use_optimized_only_if_safe: true
+
+    astar.heuristic_weight: 1.0
+    astar.extra_clearance: 0.0
+    astar.max_expansions: 300000
+    astar.nearest_free_search_radius: 10
+    astar.allow_diagonal: true
+
+    optimizer.enabled: true
+    optimizer.max_iterations: 120
+    optimizer.max_control_points: 80
+    optimizer.epsilon: 0.0001
+    optimizer.smooth_weight: 1.0
+    optimizer.length_weight: 0.05
+    optimizer.obstacle_weight: 12.0
+    optimizer.guide_weight: 0.08
+
+    # ESDF in asr_sdm_esdf_map is already computed from inflated occupancy.
+    # Keep this small to avoid double-inflating the robot radius.
+    optimizer.safe_distance: 0.20
+    optimizer.validity_check_step: 0.05
+    optimizer.extra_clearance: 0.0

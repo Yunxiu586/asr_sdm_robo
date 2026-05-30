@@ -1,4 +1,17 @@
 cmake_minimum_required(VERSION 3.8)
+
+if(POLICY CMP0074)
+  cmake_policy(SET CMP0074 NEW)
+endif()
+
+if(POLICY CMP0144)
+  cmake_policy(SET CMP0144 NEW)
+endif()
+
+set(CMAKE_POLICY_DEFAULT_CMP0074 NEW)
+set(CMAKE_POLICY_DEFAULT_CMP0144 NEW)
+set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE BOOL "Suppress CMake developer warnings")
+
 project(asr_sdm_esdf_map)
 
 if(NOT CMAKE_CXX_STANDARD)

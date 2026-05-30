@@ -23,8 +23,26 @@
 
 #include "asr_sdm_esdf_map/esdf_map.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <functional>
+#include <sstream>
+
+namespace {
+
+std_msgs::msg::ColorRGBA heightColor(double value, double alpha)
+{
+  value = std::max(0.0, std::min(1.0, value));
+
+  std_msgs::msg::ColorRGBA color;
+  color.a = alpha;
+  color.r = std::max(0.0, std::min(1.0, 1.5 - std::abs(4.0 * value - 3.0)));
+  color.g = std::max(0.0, std::min(1.0, 1.5 - std::abs(4.0 * value - 2.0)));
+  color.b = std::max(0.0, std::min(1.0, 1.5 - std::abs(4.0 * value - 1.0)));
+  return color;
+}
+
+}  // namespace
 
 // #define current_img_ md_.depth_image_[image_cnt_ & 1]
 // #define last_img_ md_.depth_image_[!(image_cnt_ & 1)]
@@ -103,6 +121,38 @@ void SDFMap::initMap(const std::shared_ptr<rclcpp::Node> & nh)
     node_->get_parameter("esdf_map.visualization_truncate_height").as_double();
   mp_.virtual_ceil_height_ = node_->get_parameter("esdf_map.virtual_ceil_height").as_double();
 
+  node_->declare_parameter("esdf_map.publish_esdf_3d", true);
+  node_->declare_parameter("esdf_map.esdf_3d_local_only", true);
+  node_->declare_parameter("esdf_map.esdf_3d_stride", 1);
+  node_->declare_parameter("esdf_map.esdf_3d_min_distance", 0.0);
+  node_->declare_parameter("esdf_map.esdf_3d_max_distance", 3.0);
+  node_->declare_parameter("esdf_map.esdf_3d_publish_negative_distance", true);
+  mp_.publish_esdf_3d_ = node_->get_parameter("esdf_map.publish_esdf_3d").as_bool();
+  mp_.esdf_3d_local_only_ = node_->get_parameter("esdf_map.esdf_3d_local_only").as_bool();
+  mp_.esdf_3d_stride_ = node_->get_parameter("esdf_map.esdf_3d_stride").as_int();
+  mp_.esdf_3d_min_distance_ = node_->get_parameter("esdf_map.esdf_3d_min_distance").as_double();
+  mp_.esdf_3d_max_distance_ = node_->get_parameter("esdf_map.esdf_3d_max_distance").as_double();
+  mp_.esdf_3d_publish_negative_distance_ =
+    node_->get_parameter("esdf_map.esdf_3d_publish_negative_distance").as_bool();
+  mp_.esdf_3d_stride_ = std::max(1, mp_.esdf_3d_stride_);
+  mp_.esdf_3d_max_distance_ = std::max(mp_.esdf_3d_min_distance_ + 1e-3, mp_.esdf_3d_max_distance_);
+
+  node_->declare_parameter("esdf_map.publish_occupied_map_3d", true);
+  node_->declare_parameter("esdf_map.occupied_map_3d_local_only", false);
+  node_->declare_parameter("esdf_map.occupied_map_3d_use_inflated", true);
+  node_->declare_parameter("esdf_map.occupied_map_3d_stride", 1);
+  node_->declare_parameter("esdf_map.occupied_map_3d_alpha", 0.85);
+  mp_.publish_occupied_map_3d_ =
+    node_->get_parameter("esdf_map.publish_occupied_map_3d").as_bool();
+  mp_.occupied_map_3d_local_only_ =
+    node_->get_parameter("esdf_map.occupied_map_3d_local_only").as_bool();
+  mp_.occupied_map_3d_use_inflated_ =
+    node_->get_parameter("esdf_map.occupied_map_3d_use_inflated").as_bool();
+  mp_.occupied_map_3d_stride_ = node_->get_parameter("esdf_map.occupied_map_3d_stride").as_int();
+  mp_.occupied_map_3d_alpha_ = node_->get_parameter("esdf_map.occupied_map_3d_alpha").as_double();
+  mp_.occupied_map_3d_stride_ = std::max(1, mp_.occupied_map_3d_stride_);
+  mp_.occupied_map_3d_alpha_ = std::max(0.0, std::min(1.0, mp_.occupied_map_3d_alpha_));
+
   node_->declare_parameter("esdf_map.show_occ_time", false);
   node_->declare_parameter("esdf_map.show_esdf_time", false);
   node_->declare_parameter("esdf_map.pose_type", 1);
@@ -112,6 +162,44 @@ void SDFMap::initMap(const std::shared_ptr<rclcpp::Node> & nh)
 
   node_->declare_parameter("esdf_map.frame_id", std::string("world"));
   mp_.frame_id_ = node_->get_parameter("esdf_map.frame_id").as_string();
+
+  node_->declare_parameter("esdf_map.input_mode", std::string("esdf_topics"));
+  node_->declare_parameter("esdf_map.depth_topic", std::string("/esdf_map/depth"));
+  node_->declare_parameter("esdf_map.pose_topic", std::string("/esdf_map/pose"));
+  node_->declare_parameter("esdf_map.odom_topic", std::string("/esdf_map/odom"));
+  node_->declare_parameter("esdf_map.cloud_topic", std::string("/esdf_map/cloud"));
+  node_->declare_parameter(
+    "esdf_map.vo_pose_topic", std::string("/localization/video_inertial_odom/pose"));
+  node_->declare_parameter(
+    "esdf_map.vo_points_topic", std::string("/localization/video_inertial_odom/key_frame/points"));
+  node_->declare_parameter("esdf_map.vo_points_ns_filter", std::string("pts"));
+  node_->declare_parameter("esdf_map.vo_points_accumulate", true);
+
+  mp_.input_mode_ = node_->get_parameter("esdf_map.input_mode").as_string();
+  mp_.depth_topic_ = node_->get_parameter("esdf_map.depth_topic").as_string();
+  mp_.pose_topic_ = node_->get_parameter("esdf_map.pose_topic").as_string();
+  mp_.odom_topic_ = node_->get_parameter("esdf_map.odom_topic").as_string();
+  mp_.cloud_topic_ = node_->get_parameter("esdf_map.cloud_topic").as_string();
+  mp_.vo_pose_topic_ = node_->get_parameter("esdf_map.vo_pose_topic").as_string();
+  mp_.vo_points_topic_ = node_->get_parameter("esdf_map.vo_points_topic").as_string();
+  mp_.vo_points_ns_filter_ = node_->get_parameter("esdf_map.vo_points_ns_filter").as_string();
+  mp_.vo_points_accumulate_ = node_->get_parameter("esdf_map.vo_points_accumulate").as_bool();
+
+  node_->declare_parameter("esdf_map.final_map_enable", false);
+  node_->declare_parameter("esdf_map.final_map_input_timeout", 3.0);
+  node_->declare_parameter("esdf_map.final_map_freeze_after_build", true);
+  node_->declare_parameter("esdf_map.final_map_force_global_visualization", true);
+  node_->declare_parameter("esdf_map.final_map_rebuild_inflation_from_occupancy", false);
+  mp_.final_map_enable_ = node_->get_parameter("esdf_map.final_map_enable").as_bool();
+  mp_.final_map_input_timeout_ =
+    node_->get_parameter("esdf_map.final_map_input_timeout").as_double();
+  mp_.final_map_freeze_after_build_ =
+    node_->get_parameter("esdf_map.final_map_freeze_after_build").as_bool();
+  mp_.final_map_force_global_visualization_ =
+    node_->get_parameter("esdf_map.final_map_force_global_visualization").as_bool();
+  mp_.final_map_rebuild_inflation_from_occupancy_ =
+    node_->get_parameter("esdf_map.final_map_rebuild_inflation_from_occupancy").as_bool();
+  mp_.final_map_input_timeout_ = std::max(0.1, mp_.final_map_input_timeout_);
 
   node_->declare_parameter("esdf_map.local_bound_inflate", 1.0);
   node_->declare_parameter("esdf_map.local_map_margin", 1);
@@ -177,11 +265,11 @@ void SDFMap::initMap(const std::shared_ptr<rclcpp::Node> & nh)
   rclcpp::QoS qos_odom(rclcpp::KeepLast(1));
 
   depth_sub_.reset(new message_filters::Subscriber<sensor_msgs::msg::Image>(
-    node_, "/esdf_map/depth", qos_depth.get_rmw_qos_profile()));
+    node_, mp_.depth_topic_, qos_depth.get_rmw_qos_profile()));
 
   if (mp_.pose_type_ == POSE_STAMPED) {
     pose_sub_.reset(new message_filters::Subscriber<geometry_msgs::msg::PoseStamped>(
-      node_, "/esdf_map/pose", qos_pose.get_rmw_qos_profile()));
+      node_, mp_.pose_topic_, qos_pose.get_rmw_qos_profile()));
 
     sync_image_pose_.reset(new message_filters::Synchronizer<SyncPolicyImagePose>(
       SyncPolicyImagePose(100), *depth_sub_, *pose_sub_));
@@ -190,7 +278,7 @@ void SDFMap::initMap(const std::shared_ptr<rclcpp::Node> & nh)
 
   } else if (mp_.pose_type_ == ODOMETRY) {
     odom_sub_.reset(new message_filters::Subscriber<nav_msgs::msg::Odometry>(
-      node_, "/esdf_map/odom", qos_odom.get_rmw_qos_profile()));
+      node_, mp_.odom_topic_, qos_odom.get_rmw_qos_profile()));
 
     sync_image_odom_.reset(new message_filters::Synchronizer<SyncPolicyImageOdom>(
       SyncPolicyImageOdom(100), *depth_sub_, *odom_sub_));
@@ -199,20 +287,43 @@ void SDFMap::initMap(const std::shared_ptr<rclcpp::Node> & nh)
   }
 
   indep_cloud_sub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "/esdf_map/cloud", rclcpp::QoS(10),
+    mp_.cloud_topic_, rclcpp::QoS(10),
     std::bind(&SDFMap::cloudCallback, this, std::placeholders::_1));
   indep_odom_sub_ = node_->create_subscription<nav_msgs::msg::Odometry>(
-    "/esdf_map/odom", rclcpp::QoS(10),
+    mp_.odom_topic_, rclcpp::QoS(10),
     std::bind(&SDFMap::odomCallback, this, std::placeholders::_1));
+
+  if (mp_.input_mode_ == "vo_sparse") {
+    vo_pose_sub_ = node_->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+      mp_.vo_pose_topic_, rclcpp::QoS(50),
+      std::bind(&SDFMap::voPoseCallback, this, std::placeholders::_1));
+    vo_points_sub_ = node_->create_subscription<visualization_msgs::msg::Marker>(
+      mp_.vo_points_topic_, rclcpp::QoS(1000),
+      std::bind(&SDFMap::voPointsCallback, this, std::placeholders::_1));
+
+    RCLCPP_INFO(
+      node_->get_logger(), "ESDF direct VO input enabled: pose=%s, points=%s",
+      mp_.vo_pose_topic_.c_str(), mp_.vo_points_topic_.c_str());
+  } else if (mp_.input_mode_ == "realsense_depth") {
+    RCLCPP_WARN(
+      node_->get_logger(),
+      "input_mode=realsense_depth is reserved. ESDF can use depth_topic=%s, but it still needs a synchronized pose/odom topic; IMU should be consumed by the VO/VIO module, not directly by ESDF.",
+      mp_.depth_topic_.c_str());
+  }
 
   auto period = std::chrono::milliseconds(50);
   occ_timer_ = node_->create_wall_timer(period, std::bind(&SDFMap::updateOccupancyCallback, this));
   esdf_timer_ = node_->create_wall_timer(period, std::bind(&SDFMap::updateESDFCallback, this));
   vis_timer_ = node_->create_wall_timer(period, std::bind(&SDFMap::visCallback, this));
+  final_map_timer_ = node_->create_wall_timer(
+    std::chrono::milliseconds(200), std::bind(&SDFMap::finalMapTimerCallback, this));
   map_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/esdf_map/occupancy", 10);
   map_inf_pub_ =
     node_->create_publisher<sensor_msgs::msg::PointCloud2>("/esdf_map/occupancy_inflate", 10);
   esdf_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/esdf_map/esdf", 10);
+  esdf_3d_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/esdf_map/esdf_3d", 10);
+  occupied_map_3d_pub_ =
+    node_->create_publisher<visualization_msgs::msg::Marker>("/esdf_map/occupied_map_3d", 10);
   update_range_pub_ =
     node_->create_publisher<visualization_msgs::msg::Marker>("/esdf_map/update_range", 10);
 
@@ -225,6 +336,10 @@ void SDFMap::initMap(const std::shared_ptr<rclcpp::Node> & nh)
   md_.has_first_depth_ = false;
   md_.has_odom_ = false;
   md_.has_cloud_ = false;
+  md_.final_map_input_received_ = false;
+  md_.final_map_ready_ = false;
+  md_.final_map_building_ = false;
+  md_.last_input_wall_time_ = std::chrono::steady_clock::now();
   md_.image_cnt_ = 0;
 
   md_.esdf_time_ = 0.0;
@@ -825,12 +940,20 @@ void SDFMap::clearAndInflateLocalMap()
 
 void SDFMap::visCallback()
 {
+  const bool final_global_view =
+    mp_.final_map_enable_ && md_.final_map_ready_ && mp_.final_map_force_global_visualization_;
+
   publishMap();
-  publishMapInflate(false);
+  publishMapInflate(final_global_view);
+  if (mp_.publish_occupied_map_3d_) publishOccupiedMap3D();
+  publishESDF();
+  if (mp_.publish_esdf_3d_) publishESDF3D();
+  publishUpdateRange();
 }
 
 void SDFMap::updateOccupancyCallback()
 {
+  if (finalMapFrozen()) return;
   if (!md_.occ_need_update_) return;
 
   auto t1 = node_->now();
@@ -857,6 +980,7 @@ void SDFMap::updateOccupancyCallback()
 
 void SDFMap::updateESDFCallback()
 {
+  if (finalMapFrozen()) return;
   if (!md_.esdf_need_update_) return;
 
   auto t1 = node_->now();
@@ -876,9 +1000,127 @@ void SDFMap::updateESDFCallback()
   md_.esdf_need_update_ = false;
 }
 
+
+void SDFMap::notifyInputReceived()
+{
+  if (!mp_.final_map_enable_) return;
+
+  md_.final_map_input_received_ = true;
+  md_.last_input_wall_time_ = std::chrono::steady_clock::now();
+}
+
+bool SDFMap::finalMapFrozen() const
+{
+  return mp_.final_map_enable_ && mp_.final_map_freeze_after_build_ && md_.final_map_ready_;
+}
+
+void SDFMap::finalMapTimerCallback()
+{
+  if (!mp_.final_map_enable_) return;
+  if (!md_.final_map_input_received_) return;
+  if (md_.final_map_ready_ || md_.final_map_building_) return;
+  if (md_.occ_need_update_ || md_.esdf_need_update_) return;
+
+  const auto now = std::chrono::steady_clock::now();
+  const double idle_time = std::chrono::duration<double>(now - md_.last_input_wall_time_).count();
+  if (idle_time < mp_.final_map_input_timeout_) return;
+
+  buildFinalGlobalMap();
+}
+
+void SDFMap::rebuildGlobalInflatedMapFromOccupancy()
+{
+  std::fill(md_.occupancy_buffer_inflate_.begin(), md_.occupancy_buffer_inflate_.end(), 0);
+
+  const int inf_step = ceil(mp_.obstacles_inflation_ / mp_.resolution_);
+  vector<Eigen::Vector3i> inf_pts(pow(2 * inf_step + 1, 3));
+
+  for (int x = mp_.map_min_idx_(0); x <= mp_.map_max_idx_(0); ++x)
+    for (int y = mp_.map_min_idx_(1); y <= mp_.map_max_idx_(1); ++y)
+      for (int z = mp_.map_min_idx_(2); z <= mp_.map_max_idx_(2); ++z) {
+        if (md_.occupancy_buffer_[toAddress(x, y, z)] <= mp_.min_occupancy_log_) continue;
+
+        inflatePoint(Eigen::Vector3i(x, y, z), inf_step, inf_pts);
+        for (const auto & inf_pt : inf_pts) {
+          if (!isInMap(inf_pt)) continue;
+          md_.occupancy_buffer_inflate_[toAddress(inf_pt)] = 1;
+        }
+      }
+
+  if (mp_.virtual_ceil_height_ > -0.5) {
+    int ceil_id = floor((mp_.virtual_ceil_height_ - mp_.map_origin_(2)) * mp_.resolution_inv_);
+    ceil_id = std::max(0, std::min(ceil_id, mp_.map_voxel_num_(2) - 1));
+    for (int x = mp_.map_min_idx_(0); x <= mp_.map_max_idx_(0); ++x)
+      for (int y = mp_.map_min_idx_(1); y <= mp_.map_max_idx_(1); ++y) {
+        md_.occupancy_buffer_inflate_[toAddress(x, y, ceil_id)] = 1;
+      }
+  }
+}
+
+void SDFMap::buildFinalGlobalMap()
+{
+  md_.final_map_building_ = true;
+
+  RCLCPP_INFO(
+    node_->get_logger(),
+    "Final fixed ESDF map: input has stopped for %.2f s, rebuilding global ESDF.",
+    mp_.final_map_input_timeout_);
+
+  if (mp_.final_map_rebuild_inflation_from_occupancy_) {
+    rebuildGlobalInflatedMapFromOccupancy();
+  }
+
+  md_.local_bound_min_ = mp_.map_min_idx_;
+  md_.local_bound_max_ = mp_.map_max_idx_;
+
+  std::fill(md_.distance_buffer_.begin(), md_.distance_buffer_.end(), 10000.0);
+  std::fill(md_.distance_buffer_neg_.begin(), md_.distance_buffer_neg_.end(), 10000.0);
+  std::fill(md_.distance_buffer_all_.begin(), md_.distance_buffer_all_.end(), 10000.0);
+
+  size_t inflated_count = 0;
+  for (const auto occ : md_.occupancy_buffer_inflate_) {
+    if (occ != 0) ++inflated_count;
+  }
+
+  if (inflated_count == 0) {
+    RCLCPP_WARN(
+      node_->get_logger(),
+      "Final fixed ESDF map: no inflated occupied voxel exists. Final map topics will be empty.");
+  } else {
+    auto t1 = node_->now();
+    updateESDF3d();
+    auto t2 = node_->now();
+    RCLCPP_INFO(
+      node_->get_logger(),
+      "Final fixed ESDF map: global ESDF rebuilt from %zu inflated occupied voxels in %.4f s.",
+      inflated_count, (t2 - t1).seconds());
+  }
+
+  md_.has_cloud_ = true;
+  md_.occ_need_update_ = false;
+  md_.esdf_need_update_ = false;
+  md_.local_updated_ = false;
+  md_.final_map_ready_ = true;
+  md_.final_map_building_ = false;
+
+  publishMap();
+  publishMapInflate(true);
+  if (mp_.publish_occupied_map_3d_) publishOccupiedMap3D();
+  publishESDF();
+  if (mp_.publish_esdf_3d_) publishESDF3D();
+  publishUpdateRange();
+
+  RCLCPP_INFO(
+    node_->get_logger(),
+    "Final fixed ESDF map is ready. Published fixed /esdf_map/occupancy_inflate, /esdf_map/occupied_map_3d and /esdf_map/esdf_3d.");
+}
+
 void SDFMap::depthPoseCallback(
   sensor_msgs::msg::Image::ConstSharedPtr img, geometry_msgs::msg::PoseStamped::ConstSharedPtr pose)
 {
+  if (finalMapFrozen()) return;
+  notifyInputReceived();
+
   /* get depth image */
   cv_bridge::CvImagePtr cv_ptr;
   cv_ptr = cv_bridge::toCvCopy(img, img->encoding);
@@ -908,6 +1150,8 @@ void SDFMap::depthPoseCallback(
 
 void SDFMap::odomCallback(nav_msgs::msg::Odometry::ConstSharedPtr odom)
 {
+  if (finalMapFrozen()) return;
+  notifyInputReceived();
   if (md_.has_first_depth_) return;
 
   md_.camera_pos_(0) = odom->pose.pose.position.x;
@@ -919,17 +1163,115 @@ void SDFMap::odomCallback(nav_msgs::msg::Odometry::ConstSharedPtr odom)
 
 void SDFMap::cloudCallback(sensor_msgs::msg::PointCloud2::ConstSharedPtr msg)
 {
+  if (finalMapFrozen()) return;
+  notifyInputReceived();
+
   pcl::PointCloud<pcl::PointXYZ> latest_cloud;
   pcl::fromROSMsg(*msg, latest_cloud);
+  insertPointCloud(latest_cloud);
+}
+
+void SDFMap::voPoseCallback(geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr pose)
+{
+  if (finalMapFrozen()) return;
+  notifyInputReceived();
+
+  md_.camera_pos_(0) = pose->pose.pose.position.x;
+  md_.camera_pos_(1) = pose->pose.pose.position.y;
+  md_.camera_pos_(2) = pose->pose.pose.position.z;
+  md_.camera_q_ = Eigen::Quaterniond(
+    pose->pose.pose.orientation.w, pose->pose.pose.orientation.x,
+    pose->pose.pose.orientation.y, pose->pose.pose.orientation.z);
+
+  md_.has_odom_ = isInMap(md_.camera_pos_);
+}
+
+void SDFMap::voPointsCallback(visualization_msgs::msg::Marker::ConstSharedPtr marker)
+{
+  if (finalMapFrozen()) return;
+  notifyInputReceived();
+  if (!md_.has_odom_) return;
+
+  std::stringstream key_stream;
+  key_stream << marker->ns << ":" << marker->id;
+  const std::string key = key_stream.str();
+
+  if (marker->action == visualization_msgs::msg::Marker::DELETEALL) {
+    vo_marker_points_.clear();
+    this->resetBuffer();
+    md_.esdf_need_update_ = true;
+    return;
+  }
+
+  if (marker->action == visualization_msgs::msg::Marker::DELETE) {
+    vo_marker_points_.erase(key);
+    return;
+  }
+
+  if (marker->action != visualization_msgs::msg::Marker::ADD) return;
+
+  if (!mp_.vo_points_ns_filter_.empty() && marker->ns != mp_.vo_points_ns_filter_) return;
+
+  Eigen::Vector3d t(
+    marker->pose.position.x, marker->pose.position.y, marker->pose.position.z);
+  Eigen::Quaterniond q(
+    marker->pose.orientation.w, marker->pose.orientation.x,
+    marker->pose.orientation.y, marker->pose.orientation.z);
+  if (q.norm() < 1e-6) q = Eigen::Quaterniond::Identity();
+  q.normalize();
+
+  std::vector<Eigen::Vector3d> pts;
+  pts.reserve(std::max<size_t>(1, marker->points.size()));
+
+  if (!marker->points.empty()) {
+    for (const auto & point : marker->points) {
+      Eigen::Vector3d local(point.x, point.y, point.z);
+      pts.push_back(t + q * local);
+    }
+  } else {
+    pts.push_back(t);
+  }
+
+  if (pts.empty()) return;
+
+  pcl::PointCloud<pcl::PointXYZ> cloud;
+
+  if (mp_.vo_points_accumulate_) {
+    vo_marker_points_[key] = pts;
+
+    for (const auto & item : vo_marker_points_) {
+      for (const auto & point : item.second) {
+        pcl::PointXYZ pcl_point;
+        pcl_point.x = point.x();
+        pcl_point.y = point.y();
+        pcl_point.z = point.z();
+        cloud.push_back(pcl_point);
+      }
+    }
+  } else {
+    for (const auto & point : pts) {
+      pcl::PointXYZ pcl_point;
+      pcl_point.x = point.x();
+      pcl_point.y = point.y();
+      pcl_point.z = point.z();
+      cloud.push_back(pcl_point);
+    }
+  }
+
+  insertPointCloud(cloud);
+}
+
+void SDFMap::insertPointCloud(const pcl::PointCloud<pcl::PointXYZ> & latest_cloud)
+{
+  if (finalMapFrozen()) return;
 
   md_.has_cloud_ = true;
 
   if (!md_.has_odom_) {
-    // std::cout << "no odom!" << std::endl;
     return;
   }
 
-  if (latest_cloud.points.size() == 0) return;
+  if (latest_cloud.points.empty()) return;
 
   if (isnan(md_.camera_pos_(0)) || isnan(md_.camera_pos_(1)) || isnan(md_.camera_pos_(2))) return;
 
@@ -1006,6 +1348,7 @@ void SDFMap::cloudCallback(sensor_msgs::msg::PointCloud2::ConstSharedPtr msg)
   boundIndex(md_.local_bound_min_);
   boundIndex(md_.local_bound_max_);
 
+  md_.update_num_ += 1;
   md_.esdf_need_update_ = true;
 }
 
@@ -1129,6 +1472,72 @@ void SDFMap::publishMapInflate(bool all_info)
   map_inf_pub_->publish(cloud_msg);
 
   // ROS_INFO("pub map");
+}
+
+void SDFMap::publishOccupiedMap3D()
+{
+  visualization_msgs::msg::Marker mk;
+
+  mk.header.frame_id = mp_.frame_id_;
+  mk.header.stamp = node_->now();
+  mk.ns = "occupied_map_3d";
+  mk.id = 0;
+  mk.type = visualization_msgs::msg::Marker::CUBE_LIST;
+  mk.action = visualization_msgs::msg::Marker::ADD;
+  mk.pose.orientation.w = 1.0;
+  mk.scale.x = mp_.resolution_;
+  mk.scale.y = mp_.resolution_;
+  mk.scale.z = mp_.resolution_;
+
+  Eigen::Vector3i min_cut;
+  Eigen::Vector3i max_cut;
+
+  const bool final_global_view =
+    mp_.final_map_enable_ && md_.final_map_ready_ && mp_.final_map_force_global_visualization_;
+
+  if (mp_.occupied_map_3d_local_only_ && !final_global_view) {
+    min_cut = md_.local_bound_min_ -
+      Eigen::Vector3i(mp_.local_map_margin_, mp_.local_map_margin_, mp_.local_map_margin_);
+    max_cut = md_.local_bound_max_ +
+      Eigen::Vector3i(mp_.local_map_margin_, mp_.local_map_margin_, mp_.local_map_margin_);
+  } else {
+    min_cut = mp_.map_min_idx_;
+    max_cut = mp_.map_max_idx_;
+  }
+
+  boundIndex(min_cut);
+  boundIndex(max_cut);
+
+  const int stride = std::max(1, mp_.occupied_map_3d_stride_);
+  const double z_min = mp_.ground_height_;
+  const double z_max = std::max(mp_.ground_height_ + 1e-3, mp_.visualization_truncate_height_);
+
+  for (int x = min_cut(0); x <= max_cut(0); x += stride)
+    for (int y = min_cut(1); y <= max_cut(1); y += stride)
+      for (int z = min_cut(2); z <= max_cut(2); z += stride) {
+        const int address = toAddress(x, y, z);
+
+        if (mp_.occupied_map_3d_use_inflated_) {
+          if (md_.occupancy_buffer_inflate_[address] == 0) continue;
+        } else {
+          if (md_.occupancy_buffer_[address] <= mp_.min_occupancy_log_) continue;
+        }
+
+        Eigen::Vector3d pos;
+        indexToPos(Eigen::Vector3i(x, y, z), pos);
+        if (pos(2) > mp_.visualization_truncate_height_) continue;
+
+        geometry_msgs::msg::Point point;
+        point.x = pos(0);
+        point.y = pos(1);
+        point.z = pos(2);
+        mk.points.push_back(point);
+
+        const double height_ratio = (pos(2) - z_min) / (z_max - z_min);
+        mk.colors.push_back(heightColor(height_ratio, mp_.occupied_map_3d_alpha_));
+      }
+
+  occupied_map_3d_pub_->publish(mk);
 }
 
 void SDFMap::publishUnknown()
@@ -1276,6 +1685,72 @@ void SDFMap::publishESDF()
   // ROS_INFO("pub esdf");
 }
 
+
+void SDFMap::publishESDF3D()
+{
+  if ((!md_.has_odom_ || !md_.has_cloud_) && !md_.final_map_ready_) return;
+
+  pcl::PointCloud<pcl::PointXYZI> cloud;
+  pcl::PointXYZI pt;
+
+  Eigen::Vector3i min_cut;
+  Eigen::Vector3i max_cut;
+
+  const bool final_global_view =
+    mp_.final_map_enable_ && md_.final_map_ready_ && mp_.final_map_force_global_visualization_;
+
+  if (mp_.esdf_3d_local_only_ && !final_global_view) {
+    min_cut = md_.local_bound_min_ - Eigen::Vector3i(
+      mp_.local_map_margin_, mp_.local_map_margin_, mp_.local_map_margin_);
+    max_cut = md_.local_bound_max_ + Eigen::Vector3i(
+      mp_.local_map_margin_, mp_.local_map_margin_, mp_.local_map_margin_);
+  } else {
+    min_cut = mp_.map_min_idx_;
+    max_cut = mp_.map_max_idx_;
+  }
+
+  boundIndex(min_cut);
+  boundIndex(max_cut);
+
+  const double min_dist = mp_.esdf_3d_min_distance_;
+  const double max_dist = mp_.esdf_3d_max_distance_;
+  const int stride = std::max(1, mp_.esdf_3d_stride_);
+
+  for (int x = min_cut(0); x <= max_cut(0); x += stride)
+    for (int y = min_cut(1); y <= max_cut(1); y += stride)
+      for (int z = min_cut(2); z <= max_cut(2); z += stride) {
+        const int idx = toAddress(x, y, z);
+        double dist = md_.distance_buffer_all_[idx];
+
+        // distance_buffer_all_ keeps 10000 for voxels that have not been updated by ESDF
+        if (dist > 9999.0) continue;
+
+        if (!mp_.esdf_3d_publish_negative_distance_ && dist < 0.0) continue;
+
+        double vis_dist = std::abs(dist);
+        if (vis_dist > max_dist) continue;
+        vis_dist = std::max(vis_dist, min_dist);
+
+        Eigen::Vector3d pos;
+        indexToPos(Eigen::Vector3i(x, y, z), pos);
+
+        pt.x = pos(0);
+        pt.y = pos(1);
+        pt.z = pos(2);
+        pt.intensity = (vis_dist - min_dist) / (max_dist - min_dist);
+        cloud.push_back(pt);
+      }
+
+  cloud.width = cloud.points.size();
+  cloud.height = 1;
+  cloud.is_dense = true;
+  cloud.header.frame_id = mp_.frame_id_;
+
+  sensor_msgs::msg::PointCloud2 cloud_msg;
+  pcl::toROSMsg(cloud, cloud_msg);
+  esdf_3d_pub_->publish(cloud_msg);
+}
+
 void SDFMap::getSliceESDF(
   const double height, const double res, const Eigen::Vector4d & range,
   vector<Eigen::Vector3d> & slice, vector<Eigen::Vector3d> & grad, int sign)
@@ -1367,6 +1842,9 @@ void SDFMap::getSurroundPts(
 void SDFMap::depthOdomCallback(
   sensor_msgs::msg::Image::ConstSharedPtr img, nav_msgs::msg::Odometry::ConstSharedPtr odom)
 {
+  if (finalMapFrozen()) return;
+  notifyInputReceived();
+
   /* get pose */
   md_.camera_pos_(0) = odom->pose.pose.position.x;
   md_.camera_pos_(1) = odom->pose.pose.position.y;
@@ -1388,12 +1866,18 @@ void SDFMap::depthOdomCallback(
 
 void SDFMap::depthCallback(sensor_msgs::msg::Image::ConstSharedPtr img)
 {
+  if (finalMapFrozen()) return;
+  notifyInputReceived();
+
   RCLCPP_INFO(
     node_->get_logger(), "depth: %d.%u", img->header.stamp.sec, img->header.stamp.nanosec);
 }
 
 void SDFMap::poseCallback(geometry_msgs::msg::PoseStamped::ConstSharedPtr pose)
 {
+  if (finalMapFrozen()) return;
+  notifyInputReceived();
+
   RCLCPP_INFO(
     node_->get_logger(), "pose: %d.%u", pose->header.stamp.sec, pose->header.stamp.nanosec);
 
