@@ -210,6 +210,25 @@ VoNode::VoNode()
         this, "subpix_n_iter", static_cast<int>(svo::Config::subpixNIter())));
     svo::Config::maxEpiSearchSteps() = static_cast<size_t>(vk::getParam<int>(
         this, "max_epi_search_steps", static_cast<int>(svo::Config::maxEpiSearchSteps())));
+
+    // === VIO Backend: Pose Optimization ===
+    svo::Config::poseOptimNumIter() = static_cast<size_t>(vk::getParam<int>(
+        this, "pose_optim_num_iter", static_cast<int>(svo::Config::poseOptimNumIter())));
+
+    // === VIO Backend: Local Bundle Adjustment ===
+    svo::Config::lobaNumIter() = static_cast<size_t>(vk::getParam<int>(
+        this, "loba_num_iter", static_cast<int>(svo::Config::lobaNumIter())));
+    svo::Config::coreNKfs() = static_cast<size_t>(vk::getParam<int>(
+        this, "core_n_kfs", static_cast<int>(svo::Config::coreNKfs())));
+    // Reproj threshold for local BA (higher than frontend for robustness)
+    if (vk::getParam<bool>(this, "loba_override_thresh", false))
+      svo::Config::lobaThresh() = vk::getParam<double>(this, "loba_thresh", svo::Config::lobaThresh());
+
+    // === VIO Backend: Structure Optimization ===
+    svo::Config::structureOptimNumIter() = static_cast<size_t>(vk::getParam<int>(
+        this, "structure_optim_num_iter", static_cast<int>(svo::Config::structureOptimNumIter())));
+    svo::Config::structureOptimMaxPts() = static_cast<size_t>(vk::getParam<int>(
+        this, "structure_optim_max_pts", static_cast<int>(svo::Config::structureOptimMaxPts())));
   }
 
   // --- Frame throttling ---
