@@ -1,7 +1,7 @@
-#ifndef ASR_SDM_TRAJECTORY_PLANNER_PLANNER_ASTAR_3D_PLANNER_HPP_
-#define ASR_SDM_TRAJECTORY_PLANNER_PLANNER_ASTAR_3D_PLANNER_HPP_
+#ifndef ASR_SDM_GUIDANCE_PLANNER_PLANNER_ASTAR_3D_PLANNER_HPP_
+#define ASR_SDM_GUIDANCE_PLANNER_PLANNER_ASTAR_3D_PLANNER_HPP_
 
-#include <asr_sdm_guidance_planner/planner/planner_base.hpp>
+#include <planner_base.hpp>
 
 #include <vector>
 
@@ -37,4 +37,4 @@ private:
 
 }  // namespace asr_sdm_guidance_planner
 
-#endif  // ASR_SDM_TRAJECTORY_PLANNER_PLANNER_ASTAR_3D_PLANNER_HPP_
+#endif  // ASR_SDM_GUIDANCE_PLANNER_PLANNER_ASTAR_3D_PLANNER_HPP_
