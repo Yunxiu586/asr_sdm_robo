@@ -1,4 +1,4 @@
-#include <asr_sdm_guidance_planner/node/rviz_planning_node.hpp>
+#include <rviz_planning_node.hpp>
 
 #include <rclcpp/rclcpp.hpp>
 
