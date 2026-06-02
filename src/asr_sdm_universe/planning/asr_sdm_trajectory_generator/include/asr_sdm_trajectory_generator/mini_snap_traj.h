@@ -23,24 +23,26 @@
 
 
 
-#ifndef _POLYNOMIAL_TRAJ_HPP_
-#define _POLYNOMIAL_TRAJ_HPP_
+#ifndef _MINI_SNAP_TRAJ_H
+#define _MINI_SNAP_TRAJ_H
 
 #include <Eigen/Eigen>
 #include <vector>
 
+using std::vector;
+
 class PolynomialTraj {
 private:
-  std::vector<double> times;        // time of each segment
-  std::vector<std::vector<double>> cxs;  // coefficient of x of each segment, from high order to low
-  std::vector<std::vector<double>> cys;  // coefficient of y of each segment
-  std::vector<std::vector<double>> czs;  // coefficient of z of each segment
+  vector<double> times;        // time of each segment
+  vector<vector<double>> cxs;  // coefficient of x of each segment, from n-1 -> 0
+  vector<vector<double>> cys;  // coefficient of y of each segment
+  vector<vector<double>> czs;  // coefficient of z of each segment
 
   double time_sum;
   int num_seg;
 
   /* evaluation */
-  std::vector<Eigen::Vector3d> traj_vec3d;
+  vector<Eigen::Vector3d> traj_vec3d;
   double length;
 
 public:
@@ -54,7 +56,7 @@ public:
     time_sum = 0.0, num_seg = 0;
   }
 
-  void addSegment(std::vector<double> cx, std::vector<double> cy, std::vector<double> cz, double t) {
+  void addSegment(vector<double> cx, vector<double> cy, vector<double> cz, double t) {
     cxs.push_back(cx), cys.push_back(cy), czs.push_back(cz), times.push_back(t);
   }
 
@@ -69,7 +71,7 @@ public:
   Eigen::Vector3d evaluate(double t) {
     /* detetrmine segment num */
     int idx = 0;
-    while (times[idx] < t) {
+    while (times[idx] + 1e-4 < t) {
       t -= times[idx];
       ++idx;
     }
@@ -90,7 +92,7 @@ public:
   Eigen::Vector3d evaluateVel(double t) {
     /* detetrmine segment num */
     int idx = 0;
-    while (times[idx] < t) {
+    while (times[idx] + 1e-4 < t) {
       t -= times[idx];
       ++idx;
     }
@@ -118,7 +120,7 @@ public:
   Eigen::Vector3d evaluateAcc(double t) {
     /* detetrmine segment num */
     int idx = 0;
-    while (times[idx] < t) {
+    while (times[idx] + 1e-4 < t) {
       t -= times[idx];
       ++idx;
     }
@@ -148,7 +150,7 @@ public:
     return this->time_sum;
   }
 
-  std::vector<Eigen::Vector3d> getTraj() {
+  vector<Eigen::Vector3d> getTraj() {
     double eval_t = 0.0;
     traj_vec3d.clear();
     while (eval_t < time_sum) {
@@ -287,5 +289,15 @@ public:
     mean_a = mean_a / double(num);
   }
 };
+
+// input : position of waypoints, start/end vel and acc, segment time
+// Pos: Nx3
+PolynomialTraj minSnapTraj(const Eigen::MatrixXd& Pos, const Eigen::Vector3d& start_vel,
+                           const Eigen::Vector3d& end_vel, const Eigen::Vector3d& start_acc,
+                           const Eigen::Vector3d& end_acc, const Eigen::VectorXd& Time);
+
+PolynomialTraj fastLine4deg(Eigen::Vector3d start, Eigen::Vector3d end, double max_vel, double max_acc,
+                            double max_jerk);
+PolynomialTraj fastLine3deg(Eigen::Vector3d start, Eigen::Vector3d end, double max_vel, double max_acc);
 
 #endif
