@@ -1,0 +1,73 @@
+# D435i IMU Parameters for SVO VIO
+# Extracted from bag /sensing/camera/realsense/imu
+# D435i IMU: BMI055, IMU optical frame Y-axis points DOWN
+#
+# NOTE: This file uses ros__parameters format for --params-file loading.
+# The C++ code reads from the ROS parameter server (not YAML::LoadFile).
+
+/asr_sdm_video_inertial_odometry:
+  ros__parameters:
+    # === Topic ===
+    imu_topic: "/sensing/camera/realsense/imu"
+
+    # === Initial Attitude ===
+    # D435i IMU does NOT provide orientation quaternion (all zeros).
+    # SVO will use accelerometer gravity to establish world frame (Roll/Pitch from gravity).
+    set_initial_attitude_from_gravity: true
+
+    # === IMU Calibration (D435i BMI055 specs) ===
+    imu_delay_imu_cam: 0.0
+    imu_max_imu_delta_t: 0.1
+    imu_acc_max: 200.0
+    imu_omega_max: 20.0
+    # D435i BMI055 noise specs:
+    #   gyro noise density: 3e-3 rad/s/sqrt(Hz)
+    #   accel noise density: 12e-3 m/s^2/sqrt(Hz)
+    imu_gyro_noise_density: 3.0e-3
+    imu_acc_noise_density: 1.2e-2
+    imu_gyro_bias_rw: 3.0e-5
+    imu_acc_bias_rw: 4.0e-4
+    imu_gravity_magnitude: 9.81
+    imu_rate: 200.0
+    imu_velocity_sigma: 0.1
+    imu_omega_bias_sigma: 0.01
+    imu_acc_bias_sigma: 0.1
+
+    # === IMU Temporal Stationary Check ===
+    imu_temporal_stationary_check: false
+    imu_temporal_window_length_sec: 0.5
+    stationary_acc_sigma_thresh: 0.0
+    stationary_gyr_sigma_thresh: 0.0
+
+    # === Camera-IMU Extrinsics (from bag /tf_static) ===
+    # camera_optical_frame -> imu_optical_frame
+    # Small ~0.6deg rotation, ~5mm/11mm/20mm translation
+    T_cam_imu:
+      [0.9999502031, -0.0081739433, -0.0057252080,  0.0051595441,
+       0.0081556205,  0.9999615694, -0.0032164528,  0.0110255161,
+       0.0057512790,  0.0031696000,  0.9999784380,  0.0203327692,
+       0.0000000000,  0.0000000000,  0.0000000000,  1.0000000000]
+
+    # === IMU VIO Prior Weights ===
+    # SparseImgAlign (frontend) - rotation prior from IMU gyro
+    img_align_prior_lambda_rot: 0.5
+    img_align_prior_lambda_trans: 0.0
+
+    # PoseOptimizer (backend BA) - rotation prior from IMU gyro
+    # Disabled (0.0) for stability; can be increased if pose is noisy
+    pose_optim_prior_lambda_rot: 0.0
+    pose_optim_prior_lambda_trans: 0.0
+
+    # === Zero-Motion Detection ===
+    zero_motion_accel_std_thresh: 0.05
+    zero_motion_window_sec: 0.3
+    backend_use_zero_motion_detection: true
+    backend_zero_motion_check_n_frames: 5
+    zero_motion_px_diff_threshold: 0.2
+    zero_motion_ratio_moving_pixels_threshold: 0.1
+    zero_motion_min_number_correspondences: 5
+    zero_motion_max_features_to_check: 15
+    zero_motion_sigma: 0.1
+
+    # === IMU Preprocessing ===
+    imu_preprocessing_mode: 0

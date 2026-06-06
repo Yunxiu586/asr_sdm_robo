@@ -49,7 +49,7 @@ ros2 launch svo_ros test_rig3.launch.py cam_topic:=/sensing/camera/realsense/col
 ros2 launch svo_ros test_rig3.launch.py rviz:=true fast_type:=12
 
 # 仅纯视觉（不使用 IMU）
-ros2 launch svo_ros test_rig3.launch.py use_imu:=false fast_type:=12
+ros2 launch svo_ros d435i_vio.launch.py use_imu:=false fast_type:=12
 
 # VIO 方案（IMU prior λ）
 ros2 launch svo_ros vio_rig3.launch.py
@@ -59,7 +59,7 @@ ros2 launch svo_ros test_rig3.launch.py use_imu:=true \
 
 # 方案B：SparseImgAlign + PoseOptimizer 全部用 IMU prior
 ros2 launch svo_ros test_rig3.launch.py use_imu:=true \
-  img_align_prior_lambda_rot:=0.5 pose_optim_prior_lambda_rot:=0.5 fast_type:=12
+  img_align_prior_lambda_rot:=0.0 pose_optim_prior_lambda_rot:=0.0 fast_type:=12
 
 # EuRoC
 ros2 launch svo_ros test_euroc.launch.py
@@ -199,8 +199,8 @@ The VIO pipeline adds these stages on top of the pure VO pipeline:
 
 Terminal 2 — play rosbag (topics match bag defaults)
 ```sh
-ros2 bag play datasheet/airground_rig_s3_ros2
-ros2 bag play ~/svo/asr_sdm_ws/datasheet/MH_01_easy_ros2 --clock --rate 1.0
+ros2 launch svo_ros test_rig3.launch.py use_imu:=true \
+  img_align_prior_lambda_rot:=0.0 pose_optim_prior_lambda_rot:=0.0 fast_type:=12
 ```
 
 Terminal 3 — start RViz2 with the provided config and use simulated time

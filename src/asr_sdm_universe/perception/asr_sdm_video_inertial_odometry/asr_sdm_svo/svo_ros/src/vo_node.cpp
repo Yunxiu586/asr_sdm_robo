@@ -90,9 +90,13 @@ private:
   int imu_preprocessing_mode_ = 0;
   std::shared_ptr<svo::ImuPreprocessor> imu_preprocessor_;
 
-  // Bag uses absolute timestamps (2013), but SVO uses wall clock (2026).
-  // We normalize ALL timestamps to relative time: first received message = t=0.
+  // Use a shared bag-time origin, but keep per-stream monotonic guards because
+  // some recorded topics can arrive out of temporal order during playback.
   double bag_start_time_ = -1.0;  // absolute timestamp of first message received
+
+  // Per-stream monotonic timestamp guards (raw absolute time, seconds).
+  double last_imu_abs_ts_ = -1.0;
+  double last_img_abs_ts_ = -1.0;
 
   // --- IMU health monitoring ---
   int imu_meas_count_ = 0;
@@ -378,13 +382,24 @@ VoNode::~VoNode()
 // =============================================================================
 void VoNode::imuCb(const sensor_msgs::msg::Imu::ConstSharedPtr& msg)
 {
-  // Convert bag absolute timestamp (2013) to relative time (first message = t=0)
+  // Convert bag absolute timestamp to a shared relative timeline.
   double t_abs = rclcpp::Time(msg->header.stamp).seconds();
   if (bag_start_time_ < 0.0)
   {
     bag_start_time_ = t_abs;
     RCLCPP_INFO(this->get_logger(), "Bag baseline set: first IMU ts=%.3f (wall=%.3f)", t_abs, this->get_clock()->now().seconds());
   }
+
+  // Drop out-of-order IMU messages before they poison interpolation/integration.
+  if (last_imu_abs_ts_ >= 0.0 && t_abs <= last_imu_abs_ts_)
+  {
+    const double dt_back_ms = (last_imu_abs_ts_ - t_abs) * 1000.0;
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                         "Dropping out-of-order IMU: raw ts moved backward by %.1f ms", dt_back_ms);
+    return;
+  }
+  last_imu_abs_ts_ = t_abs;
+
   const double t = t_abs - bag_start_time_;
 
   ++imu_meas_count_;
@@ -456,13 +471,24 @@ void VoNode::imuCb(const sensor_msgs::msg::Imu::ConstSharedPtr& msg)
 // =============================================================================
 void VoNode::imgCb(const sensor_msgs::msg::Image::ConstSharedPtr& msg)
 {
-  // Convert bag absolute timestamp (2013) to relative time (first message = t=0)
+  // Convert bag absolute timestamp to the shared relative timeline.
   double ts_abs = rclcpp::Time(msg->header.stamp).seconds();
   if (bag_start_time_ < 0.0)
   {
     bag_start_time_ = ts_abs;
     RCLCPP_INFO(this->get_logger(), "Bag baseline set: first IMG ts=%.3f (wall=%.3f)", ts_abs, this->get_clock()->now().seconds());
   }
+
+  // Drop out-of-order images for the same reason as IMU: SVO assumes monotonic input.
+  if (last_img_abs_ts_ >= 0.0 && ts_abs <= last_img_abs_ts_)
+  {
+    const double dt_back_ms = (last_img_abs_ts_ - ts_abs) * 1000.0;
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                         "Dropping out-of-order image: raw ts moved backward by %.1f ms", dt_back_ms);
+    return;
+  }
+  last_img_abs_ts_ = ts_abs;
+
   const double timestamp = ts_abs - bag_start_time_;
 
   if (enable_frame_throttle_ && target_fps_ > 0.0)
@@ -523,11 +549,22 @@ void VoNode::run()
     {
       last_imu_status_time = now;
       bool imu_calib_ready = (imu_handler_ && imu_handler_->isCalibrated());
+      size_t n_obs = 0;
+      int calib_state = -1;
+      Eigen::Vector3d gyro_bias = Eigen::Vector3d::Zero();
+      if (imu_handler_ && imu_handler_->calibrator())
+      {
+        n_obs = imu_handler_->calibrator()->numObservations();
+        calib_state = static_cast<int>(imu_handler_->calibrator()->calibrationState());
+        gyro_bias = imu_handler_->calibrator()->gyroBias();
+      }
       RCLCPP_INFO(this->get_logger(),
-          "[HEARTBEAT] wall_time=%.3f last_imu_ts=%.3f imu_meas_count=%d "
-          "imu_data_collection=1 imu_calib_ready=%d is_stationary=%d",
+          "[HEARTBEAT] wall=%.3f imu_ts=%.3f imu_cnt=%d "
+          "calib_ready=%d calib_state=%d n_obs=%zu gyro_bias=[%.4f %.4f %.4f] stationary=%d",
           now, last_imu_msg_ts_, imu_meas_count_,
-          imu_calib_ready, vo_->isStationary());
+          imu_calib_ready, calib_state, n_obs,
+          gyro_bias.x(), gyro_bias.y(), gyro_bias.z(),
+          vo_->isStationary());
     }
 
     // --- Image conversion ---

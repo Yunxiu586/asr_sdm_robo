@@ -1,0 +1,69 @@
+# IMU Extrinsics and Calibration - Intel RealSense D435i
+# Format: EuRoC YAML (matches rpg/svo_pro_open/svo_ros/param/calib/euroc_mono.yaml)
+# Camera: Intel RealSense D435i RGB (640x480, pinhole, distortion-corrected)
+# IMU: D435i built-in IMU (BMI055, ~200Hz gyro / 100Hz accel)
+#
+# Extrinsics extracted from bag /tf_static:
+#   camera_link -> camera_color_frame: [-0.00069, +0.01475, -0.00027] m
+#   camera_link -> camera_imu_frame:   [-0.01174, -0.00552, +0.00510] m
+#   camera_color_optical_frame -> imu_optical_frame: ~5mm/11mm/20mm offset, ~0.6deg rotation
+#
+# NOTE: T_cam_imu here represents the transform from IMU frame to Camera frame (T_B_C in EuRoC convention).
+# In SVO: p_cam = R * p_imu + t  =>  p_imu = R^T * (p_cam - t)
+# The matrix below is the 4x4 homogeneous transform [R | t] that maps points in the IMU optical
+# frame to the camera optical frame.
+
+label: "D435i"
+id: d435i_640x480_mono8_v1
+cameras:
+- camera:
+    label: cam0
+    id: d435i_640x480_mono8
+    line-delay-nanoseconds: 0
+    image_height: 480
+    image_width: 640
+    type: pinhole
+    intrinsics:
+      cols: 1
+      rows: 4
+      data: [452.97, 603.87, 330.59, 259.46]
+    distortion:
+      type: radial-tangential
+      parameters:
+        cols: 1
+        rows: 5
+        data: [0.0, 0.0, 0.0, 0.0, 0.0]
+  # T_B_C: Transform from IMU body frame to Camera frame
+  # Extracted from bag /tf_static: camera_imu_optical -> camera_color_optical
+  # Small translation (~5mm x, ~11mm y, ~20mm z) and ~0.6deg rotation
+  T_B_C:
+    cols: 4
+    rows: 4
+    data: [0.9999502031, -0.0081739433, -0.0057252080,  0.0051595441,
+           0.0081556205,  0.9999615694, -0.0032164528,  0.0110255161,
+           0.0057512790,  0.0031696000,  0.9999784380,  0.0203327692,
+           0.0000000000,  0.0000000000,  0.0000000000,  1.0000000000]
+
+imu_params:
+  delay_imu_cam: 0.0
+  max_imu_delta_t: 0.1
+  acc_max: 200.0
+  omega_max: 20.0
+  # D435i IMU noise specs (BMI055 from Intel datasheet):
+  #   gyro noise density: 3e-3 rad/s/sqrt(Hz)
+  #   accel noise density: 1.2e-2 m/s^2/sqrt(Hz)
+  sigma_omega_c: 3.0e-3
+  sigma_acc_c: 1.2e-2
+  sigma_omega_bias_c: 3.0e-5
+  sigma_acc_bias_c: 4.0e-4
+  sigma_integration: 0.0
+  g: 9.81
+  imu_rate: 200.0
+
+imu_initialization:
+  velocity: [0.0, 0.0, 0.0]
+  omega_bias: [0.0, 0.0, 0.0]
+  acc_bias: [0.0, 0.0, 0.0]
+  velocity_sigma: 0.1
+  omega_bias_sigma: 0.01
+  acc_bias_sigma: 0.1

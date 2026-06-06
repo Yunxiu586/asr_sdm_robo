@@ -1,0 +1,208 @@
+# VIO Parameters for Intel RealSense D435i - Monocular Visual-Inertial Odometry
+# Based on vio_rig3.yaml (rpg/svo_pro_open VIO parameters)
+# Adapted for D435i RGB camera (640x480, fx=452.97, fy=603.87)
+#
+# Usage: ros2 launch svo_ros d435i_vio.launch.py
+#
+# Camera intrinsics extracted from bag /sensing/camera/realsense/color/camera_info
+#   resolution: 640 x 480
+#   fx=452.97, fy=603.87, cx=330.59, cy=259.46
+#   distortion model: plumb_bob, D=[0,0,0,0,0] (pre-corrected by D435i ISP)
+#
+# IMU extrinsics: camera_optical_frame -> imu_optical_frame
+#   T_cam_imu extracted from bag /tf_static
+#   ~6mm, 11mm, 20mm offset; ~0.6deg rotation (near identity)
+
+# NOTE: Uses /** namespace so parameters apply regardless of actual node name.
+# This is required because the node may be named differently from the package name.
+
+/asr_sdm_video_inertial_odometry:
+  ros__parameters:
+
+    # === Camera Model (D435i RGB, 640x480) ===
+    cam_model: Pinhole
+    cam_width: 640
+    cam_height: 480
+    cam_fx: 452.97
+    cam_fy: 603.87
+    cam_cx: 330.59
+    cam_cy: 259.46
+    cam_d0: 0.0
+    cam_d1: 0.0
+    cam_d2: 0.0
+    cam_d3: 0.0
+
+    # === Basic Parameters ===
+    pipeline_is_stereo: False
+    automatic_reinitialization: True
+
+    # === Feature and Keyframe Numbers ===
+    max_fts: 300
+    max_map_fts: 600
+    max_n_kfs: 10
+    quality_min_fts: 3
+    quality_max_drop_fts: 200
+    map_scale: 1.0
+
+    # === Keyframe Selection ===
+    kfselect_criterion: FORWARD
+    kfselect_numkfs_upper_thresh: 80
+    kfselect_numkfs_lower_thresh: 40
+    kfselect_mindist: 0.04
+    kfselect_min_angle: 10
+    kfselect_min_disparity: 15
+    update_seeds_with_old_keyframes: True
+
+    # === Affine Illumination Compensation ===
+    img_align_est_illumination_gain: true
+    img_align_est_illumination_offset: true
+    depth_filter_affine_est_offset: true
+    depth_filter_affine_est_gain: false
+    reprojector_affine_est_offset: true
+    reprojector_affine_est_gain: false
+
+    # === Initialization ===
+    init_min_features: 40
+    init_min_disparity: 30.0
+    init_min_tracked: 40
+    init_min_inliers: 30
+
+    # === Feature Detection ===
+    grid_size: 20
+    n_pyr_levels: 4
+    detector_threshold_primary: 4
+    detector_threshold_secondary: 200
+    detector_threshold_shitomasi: 40
+    fast_type: 10
+    max_epi_search_steps: 15000
+    triang_min_corner_score: 4.0
+
+    # === Image Alignment (SparseImgAlign) ===
+    img_align_max_level: 4
+    img_align_min_level: 0
+    klt_max_level: 4
+    klt_min_level: 0
+    patch_match_thresh_factor: 1.5
+    subpix_n_iter: 20
+
+    # === Reprojection ===
+    use_async_reprojectors: False
+    reprojector_max_n_kfs: 5
+    scan_epi_unit_sphere: False
+    reproject_unconverged_seeds: True
+    max_unconverged_seeds_ratio: 0.2
+    reproj_thresh: 5.0
+
+    # === Pose Optimization ===
+    poseoptim_thresh: 5.0
+    poseoptim_using_unit_sphere: False
+    pose_optim_num_iter: 10
+
+    # === Structure Optimization ===
+    structure_optim_max_pts: 20
+    structure_optim_num_iter: 5
+
+    # === Depth Filter ===
+    seed_convergence_sigma2_thresh: 200
+    mappoint_convergence_sigma2_thresh: 500
+    relocalization_max_trials: 5
+
+    # === IMU VIO ===
+    use_imu: true
+
+    # === IMU Calibration ===
+    imu_delay_imu_cam: 0.0
+    imu_max_imu_delta_t: 0.1
+    imu_acc_max: 200.0
+    imu_omega_max: 20.0
+    # D435i IMU noise specs (from datasheet):
+    #   gyro noise density: 3e-3 rad/s/sqrt(Hz) -> 4.2e-3 rad/s/Hz^0.5
+    #   accel noise density: 12e-3 m/s^2/sqrt(Hz) -> 17e-3 m/s^2/Hz^0.5
+    imu_gyro_noise_density: 3.0e-3
+    imu_acc_noise_density: 1.2e-2
+    imu_gyro_bias_rw: 3.0e-5
+    imu_acc_bias_rw: 4.0e-4
+    imu_gravity_magnitude: 9.81
+    imu_rate: 200.0
+    imu_velocity_sigma: 0.1
+    imu_omega_bias_sigma: 0.01
+    imu_acc_bias_sigma: 0.1
+
+    # === IMU Temporal Stationary Check ===
+    imu_temporal_stationary_check: false
+    imu_temporal_window_length_sec: 0.5
+    stationary_acc_sigma_thresh: 0.0
+    stationary_gyr_sigma_thresh: 0.0
+
+    # === VIO: IMU Prior Weights ===
+    # SparseImgAlign (frontend) — IMU gyro rotation prior constrains image alignment
+    # CRITICAL for relocalization: keeps pose from diverging on low-texture frames
+    img_align_prior_lambda_rot: 1.0
+    img_align_prior_lambda_trans: 0.0
+    # PoseOptimizer (backend BA) — disabled to avoid double-constraining with IMU prior
+    pose_optim_prior_lambda_rot: 0.0
+    pose_optim_prior_lambda_trans: 0.0
+
+    # === Zero-Motion Detection ===
+    zero_motion_accel_std_thresh: 0.05
+    zero_motion_window_sec: 0.3
+    backend_use_zero_motion_detection: true
+    backend_zero_motion_check_n_frames: 5
+    zero_motion_px_diff_threshold: 0.2
+    zero_motion_ratio_moving_pixels_threshold: 0.1
+    zero_motion_min_number_correspondences: 5
+    zero_motion_max_features_to_check: 15
+    zero_motion_sigma: 0.1
+
+    # === Visualization ===
+    publish_marker_scale: 0.5
+    publish_active_kfs: True
+    publish_img_pyr_level: 0
+    publish_every_nth_img: 1
+    publish_every_nth_dense_input: 4
+    publish_world_in_cam_frame: true
+    publish_point_display_time: 0.0
+    publish_map_every_frame: False
+
+    # === Local Bundle Adjustment (g2o) ===
+    loba_num_iter: 0
+    core_n_kfs: 3
+    loba_thresh: 2.0
+    loba_robust_huber_width: 1.0
+    backend_only_use_corners: false
+    backend_scale_stable_thresh: 0.02
+    kfselect_backend_max_time_sec: 0.5
+
+    # === Outlier Rejection ===
+    ransac3d_inlier_percent: 35
+    use_outlier_rejection: true
+    outlier_rejection_px_threshold: 2.0
+
+    # === Loop Closing ===
+    runlc: False
+    voc_name: voc_GEN_8X4.yml.gz
+    alpha: 0.8
+    beta: 0.8
+    frames_to_ignore: 20
+    scale_retrieval_approach: -1
+    bow_thresh: 0.65
+    gv_thresh: 40.0
+    min_num_3d: 10
+    orb_dist_thresh: 48
+    match_thresh: 0.15
+    use_opengv: true
+    enable_image_logging: false
+    image_log_base_path: /tmp/loopclosure_log/
+
+    # === IMU Preprocessing ===
+    imu_preprocessing_mode: 0
+
+    # === Camera-IMU Extrinsics ===
+    # camera_optical_frame -> imu_optical_frame (from bag /tf_static)
+    # T_cam_imu = [R | t]; p_imu = R^T * (p_cam - t)
+    # Small ~0.6deg rotation, ~5mm/11mm/20mm translation
+    T_cam_imu:
+      [0.9999502031, -0.0081739433, -0.0057252080,  0.0051595441,
+       0.0081556205,  0.9999615694, -0.0032164528,  0.0110255161,
+       0.0057512790,  0.0031696000,  0.9999784380,  0.0203327692,
+       0.0000000000,  0.0000000000,  0.0000000000,  1.0000000000]
