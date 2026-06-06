@@ -57,9 +57,8 @@ ros2 launch svo_ros vio_rig3.launch.py
 ros2 launch svo_ros test_rig3.launch.py use_imu:=true \
   img_align_prior_lambda_rot:=0.5 pose_optim_prior_lambda_rot:=0.0 fast_type:=12
 
-# 方案B：SparseImgAlign + PoseOptimizer 全部用 IMU prior
-ros2 launch svo_ros test_rig3.launch.py use_imu:=true \
-  img_align_prior_lambda_rot:=0.0 pose_optim_prior_lambda_rot:=0.0 fast_type:=12
+# VIO 方案B：D435i 原始数据链路严格对齐（直接订阅 bag 原生话题）
+ros2 launch svo_ros d435i_vio.launch.py use_imu:=true
 
 # EuRoC
 ros2 launch svo_ros test_euroc.launch.py
@@ -87,9 +86,10 @@ The `vio_rig3.launch.py` is the VIO launch file that mirrors the reference `euro
 ```sh
 # Terminal 1: VIO (includes camera + IMU + VIO + RViz)
 ros2 launch svo_ros vio_rig3.launch.py rviz:=true fast_type:=12
-
+ros2 launch svo_ros d435i_vio.launch.py use_imu:=true
 # Terminal 2: Play bag
 ros2 bag play datasheet/airground_rig_s3_ros2
+ros2 bag play datasheet/d435if_20260530_080612_resized 
 ```
 
 ### VIO Launch Options

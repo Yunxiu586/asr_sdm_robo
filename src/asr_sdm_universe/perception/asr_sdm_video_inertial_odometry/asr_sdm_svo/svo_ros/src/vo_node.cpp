@@ -75,6 +75,8 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_imu_;
   std::shared_ptr<svo::ImuHandler> imu_handler_;
   bool use_imu_ = false;
+  bool received_first_img_ = false;
+  bool received_first_imu_ = false;
   svo::ImuCalibration imu_calib_;
   svo::ImuInitialization imu_init_;
   svo::IMUHandlerOptions imu_options_;
@@ -90,9 +92,13 @@ private:
   int imu_preprocessing_mode_ = 0;
   std::shared_ptr<svo::ImuPreprocessor> imu_preprocessor_;
 
-  // Use a shared bag-time origin, but keep per-stream monotonic guards because
-  // some recorded topics can arrive out of temporal order during playback.
-  double bag_start_time_ = -1.0;  // absolute timestamp of first message received
+  // Use independent per-stream time origins instead of a shared bag origin.
+  // Some recorded bags interleave IMU/image streams non-monotonically when replayed,
+  // even though each individual stream is monotonic. Keeping separate relative
+  // timelines avoids false "out-of-order" rejection while preserving per-stream
+  // monotonicity required by SVO.
+  double imu_start_time_ = -1.0;
+  double img_start_time_ = -1.0;
 
   // Per-stream monotonic timestamp guards (raw absolute time, seconds).
   double last_imu_abs_ts_ = -1.0;
@@ -320,7 +326,6 @@ VoNode::VoNode()
                 vk::getParam<double>(this, "pose_optim_prior_lambda_rot", 0.0),
                 vk::getParam<double>(this, "zero_motion_accel_std_thresh", 0.05));
   }
-  vo_->start();
 }
 
 // =============================================================================
@@ -382,12 +387,12 @@ VoNode::~VoNode()
 // =============================================================================
 void VoNode::imuCb(const sensor_msgs::msg::Imu::ConstSharedPtr& msg)
 {
-  // Convert bag absolute timestamp to a shared relative timeline.
+  // Convert raw IMU timestamp to a per-stream relative timeline.
   double t_abs = rclcpp::Time(msg->header.stamp).seconds();
-  if (bag_start_time_ < 0.0)
+  if (imu_start_time_ < 0.0)
   {
-    bag_start_time_ = t_abs;
-    RCLCPP_INFO(this->get_logger(), "Bag baseline set: first IMU ts=%.3f (wall=%.3f)", t_abs, this->get_clock()->now().seconds());
+    imu_start_time_ = t_abs;
+    RCLCPP_INFO(this->get_logger(), "IMU baseline set: first IMU ts=%.3f (wall=%.3f)", t_abs, this->get_clock()->now().seconds());
   }
 
   // Drop out-of-order IMU messages before they poison interpolation/integration.
@@ -400,12 +405,17 @@ void VoNode::imuCb(const sensor_msgs::msg::Imu::ConstSharedPtr& msg)
   }
   last_imu_abs_ts_ = t_abs;
 
-  const double t = t_abs - bag_start_time_;
+  const double t = t_abs - imu_start_time_;
 
   ++imu_meas_count_;
 
   if (imu_meas_count_ <= 5)
   {
+    if (!received_first_imu_)
+    {
+      RCLCPP_INFO(this->get_logger(), "First IMU received; VIO input stream is now live");
+      received_first_imu_ = true;
+    }
     RCLCPP_INFO(this->get_logger(),
         "IMU callback #%d: ts=%.6f (raw: %u.%u) wclk=%.3f",
         imu_meas_count_, t,
@@ -471,12 +481,19 @@ void VoNode::imuCb(const sensor_msgs::msg::Imu::ConstSharedPtr& msg)
 // =============================================================================
 void VoNode::imgCb(const sensor_msgs::msg::Image::ConstSharedPtr& msg)
 {
-  // Convert bag absolute timestamp to the shared relative timeline.
+  // Convert image timestamp to a per-stream relative timeline.
   double ts_abs = rclcpp::Time(msg->header.stamp).seconds();
-  if (bag_start_time_ < 0.0)
+  if (img_start_time_ < 0.0)
   {
-    bag_start_time_ = ts_abs;
-    RCLCPP_INFO(this->get_logger(), "Bag baseline set: first IMG ts=%.3f (wall=%.3f)", ts_abs, this->get_clock()->now().seconds());
+    img_start_time_ = ts_abs;
+    RCLCPP_INFO(this->get_logger(), "IMG baseline set: first IMG ts=%.3f (wall=%.3f)", ts_abs, this->get_clock()->now().seconds());
+  }
+  if (!received_first_img_)
+  {
+    RCLCPP_INFO(this->get_logger(), "First image received; starting SVO processing");
+    received_first_img_ = true;
+    if (vo_)
+      vo_->start();
   }
 
   // Drop out-of-order images for the same reason as IMU: SVO assumes monotonic input.
@@ -489,7 +506,7 @@ void VoNode::imgCb(const sensor_msgs::msg::Image::ConstSharedPtr& msg)
   }
   last_img_abs_ts_ = ts_abs;
 
-  const double timestamp = ts_abs - bag_start_time_;
+  const double timestamp = ts_abs - img_start_time_;
 
   if (enable_frame_throttle_ && target_fps_ > 0.0)
   {
@@ -517,7 +534,7 @@ void VoNode::run()
 
   if (use_imu_ && imu_handler_)
   {
-    RCLCPP_INFO(this->get_logger(), "IMU fusion enabled, waiting for first image...");
+    RCLCPP_INFO(this->get_logger(), "IMU fusion enabled; waiting for bag topics to appear...");
   }
 
   double last_imu_status_time = 0.0;

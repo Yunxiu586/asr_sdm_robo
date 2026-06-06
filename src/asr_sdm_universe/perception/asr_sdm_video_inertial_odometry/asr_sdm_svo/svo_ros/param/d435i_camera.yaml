@@ -25,24 +25,24 @@
 
     # === Feature Detection ===
     grid_size: 20                # 640x480 / 20 = 32 cells per axis
-    n_pyr_levels: 4
+    n_pyr_levels: 8
     fast_type: 10
     detector_threshold_primary: 4   # Default SVO value - catch most corners
     detector_threshold_secondary: 200
     detector_threshold_shitomasi: 40  # Default SVO value
     max_epi_search_steps: 30000  # Raised from 5000: supports px_length up to 21k px (enough for indoor scenes)
-    triang_min_corner_score: 4.0    # Default SVO value
+    triang_min_corner_score: 5.0    # Default SVO value
 
     # === Feature & Keyframe Numbers ===
     max_fts: 300
     max_map_fts: 600
-    max_n_kfs: 30
+    max_n_kfs: 60
     map_scale: 3.0
     quality_min_fts: 15            # Lowered from 30: allow tracking to continue with fewer features
     quality_max_drop_fts: 80        # Allow up to 80 feature drop before failure
 
     # === Keyframe Selection ===
-    kfselect_criterion: FORWARD
+    kfselect_criterion: FORWARD      #OPTIMAL/FORWARD
     kfselect_numkfs_upper_thresh: 20
     kfselect_numkfs_lower_thresh: 10
     kfselect_mindist: 0.04         # Default SVO value
@@ -104,7 +104,7 @@
     loba_thresh: 2.0
     loba_robust_huber_width: 1.0
     backend_only_use_corners: false
-    backend_scale_stable_thresh: 0.02
+    backend_scale_stable_thresh: 0.01
     kfselect_backend_max_time_sec: 0.5
 
     # === Loop Closing ===
