@@ -75,6 +75,8 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_imu_;
   std::shared_ptr<svo::ImuHandler> imu_handler_;
   bool use_imu_ = false;
+  bool received_first_img_ = false;
+  bool received_first_imu_ = false;
   svo::ImuCalibration imu_calib_;
   svo::ImuInitialization imu_init_;
   svo::IMUHandlerOptions imu_options_;
@@ -90,9 +92,17 @@ private:
   int imu_preprocessing_mode_ = 0;
   std::shared_ptr<svo::ImuPreprocessor> imu_preprocessor_;
 
-  // Bag uses absolute timestamps (2013), but SVO uses wall clock (2026).
-  // We normalize ALL timestamps to relative time: first received message = t=0.
-  double bag_start_time_ = -1.0;  // absolute timestamp of first message received
+  // Use independent per-stream time origins instead of a shared bag origin.
+  // Some recorded bags interleave IMU/image streams non-monotonically when replayed,
+  // even though each individual stream is monotonic. Keeping separate relative
+  // timelines avoids false "out-of-order" rejection while preserving per-stream
+  // monotonicity required by SVO.
+  double imu_start_time_ = -1.0;
+  double img_start_time_ = -1.0;
+
+  // Per-stream monotonic timestamp guards (raw absolute time, seconds).
+  double last_imu_abs_ts_ = -1.0;
+  double last_img_abs_ts_ = -1.0;
 
   // --- IMU health monitoring ---
   int imu_meas_count_ = 0;
@@ -210,6 +220,25 @@ VoNode::VoNode()
         this, "subpix_n_iter", static_cast<int>(svo::Config::subpixNIter())));
     svo::Config::maxEpiSearchSteps() = static_cast<size_t>(vk::getParam<int>(
         this, "max_epi_search_steps", static_cast<int>(svo::Config::maxEpiSearchSteps())));
+
+    // === VIO Backend: Pose Optimization ===
+    svo::Config::poseOptimNumIter() = static_cast<size_t>(vk::getParam<int>(
+        this, "pose_optim_num_iter", static_cast<int>(svo::Config::poseOptimNumIter())));
+
+    // === VIO Backend: Local Bundle Adjustment ===
+    svo::Config::lobaNumIter() = static_cast<size_t>(vk::getParam<int>(
+        this, "loba_num_iter", static_cast<int>(svo::Config::lobaNumIter())));
+    svo::Config::coreNKfs() = static_cast<size_t>(vk::getParam<int>(
+        this, "core_n_kfs", static_cast<int>(svo::Config::coreNKfs())));
+    // Reproj threshold for local BA (higher than frontend for robustness)
+    if (vk::getParam<bool>(this, "loba_override_thresh", false))
+      svo::Config::lobaThresh() = vk::getParam<double>(this, "loba_thresh", svo::Config::lobaThresh());
+
+    // === VIO Backend: Structure Optimization ===
+    svo::Config::structureOptimNumIter() = static_cast<size_t>(vk::getParam<int>(
+        this, "structure_optim_num_iter", static_cast<int>(svo::Config::structureOptimNumIter())));
+    svo::Config::structureOptimMaxPts() = static_cast<size_t>(vk::getParam<int>(
+        this, "structure_optim_max_pts", static_cast<int>(svo::Config::structureOptimMaxPts())));
   }
 
   // --- Frame throttling ---
@@ -297,7 +326,6 @@ VoNode::VoNode()
                 vk::getParam<double>(this, "pose_optim_prior_lambda_rot", 0.0),
                 vk::getParam<double>(this, "zero_motion_accel_std_thresh", 0.05));
   }
-  vo_->start();
 }
 
 // =============================================================================
@@ -359,19 +387,35 @@ VoNode::~VoNode()
 // =============================================================================
 void VoNode::imuCb(const sensor_msgs::msg::Imu::ConstSharedPtr& msg)
 {
-  // Convert bag absolute timestamp (2013) to relative time (first message = t=0)
+  // Convert raw IMU timestamp to a per-stream relative timeline.
   double t_abs = rclcpp::Time(msg->header.stamp).seconds();
-  if (bag_start_time_ < 0.0)
+  if (imu_start_time_ < 0.0)
   {
-    bag_start_time_ = t_abs;
-    RCLCPP_INFO(this->get_logger(), "Bag baseline set: first IMU ts=%.3f (wall=%.3f)", t_abs, this->get_clock()->now().seconds());
+    imu_start_time_ = t_abs;
+    RCLCPP_INFO(this->get_logger(), "IMU baseline set: first IMU ts=%.3f (wall=%.3f)", t_abs, this->get_clock()->now().seconds());
   }
-  const double t = t_abs - bag_start_time_;
+
+  // Drop out-of-order IMU messages before they poison interpolation/integration.
+  if (last_imu_abs_ts_ >= 0.0 && t_abs <= last_imu_abs_ts_)
+  {
+    const double dt_back_ms = (last_imu_abs_ts_ - t_abs) * 1000.0;
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                         "Dropping out-of-order IMU: raw ts moved backward by %.1f ms", dt_back_ms);
+    return;
+  }
+  last_imu_abs_ts_ = t_abs;
+
+  const double t = t_abs - imu_start_time_;
 
   ++imu_meas_count_;
 
   if (imu_meas_count_ <= 5)
   {
+    if (!received_first_imu_)
+    {
+      RCLCPP_INFO(this->get_logger(), "First IMU received; VIO input stream is now live");
+      received_first_imu_ = true;
+    }
     RCLCPP_INFO(this->get_logger(),
         "IMU callback #%d: ts=%.6f (raw: %u.%u) wclk=%.3f",
         imu_meas_count_, t,
@@ -437,14 +481,32 @@ void VoNode::imuCb(const sensor_msgs::msg::Imu::ConstSharedPtr& msg)
 // =============================================================================
 void VoNode::imgCb(const sensor_msgs::msg::Image::ConstSharedPtr& msg)
 {
-  // Convert bag absolute timestamp (2013) to relative time (first message = t=0)
+  // Convert image timestamp to a per-stream relative timeline.
   double ts_abs = rclcpp::Time(msg->header.stamp).seconds();
-  if (bag_start_time_ < 0.0)
+  if (img_start_time_ < 0.0)
   {
-    bag_start_time_ = ts_abs;
-    RCLCPP_INFO(this->get_logger(), "Bag baseline set: first IMG ts=%.3f (wall=%.3f)", ts_abs, this->get_clock()->now().seconds());
+    img_start_time_ = ts_abs;
+    RCLCPP_INFO(this->get_logger(), "IMG baseline set: first IMG ts=%.3f (wall=%.3f)", ts_abs, this->get_clock()->now().seconds());
   }
-  const double timestamp = ts_abs - bag_start_time_;
+  if (!received_first_img_)
+  {
+    RCLCPP_INFO(this->get_logger(), "First image received; starting SVO processing");
+    received_first_img_ = true;
+    if (vo_)
+      vo_->start();
+  }
+
+  // Drop out-of-order images for the same reason as IMU: SVO assumes monotonic input.
+  if (last_img_abs_ts_ >= 0.0 && ts_abs <= last_img_abs_ts_)
+  {
+    const double dt_back_ms = (last_img_abs_ts_ - ts_abs) * 1000.0;
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                         "Dropping out-of-order image: raw ts moved backward by %.1f ms", dt_back_ms);
+    return;
+  }
+  last_img_abs_ts_ = ts_abs;
+
+  const double timestamp = ts_abs - img_start_time_;
 
   if (enable_frame_throttle_ && target_fps_ > 0.0)
   {
@@ -472,7 +534,7 @@ void VoNode::run()
 
   if (use_imu_ && imu_handler_)
   {
-    RCLCPP_INFO(this->get_logger(), "IMU fusion enabled, waiting for first image...");
+    RCLCPP_INFO(this->get_logger(), "IMU fusion enabled; waiting for bag topics to appear...");
   }
 
   double last_imu_status_time = 0.0;
@@ -504,11 +566,22 @@ void VoNode::run()
     {
       last_imu_status_time = now;
       bool imu_calib_ready = (imu_handler_ && imu_handler_->isCalibrated());
+      size_t n_obs = 0;
+      int calib_state = -1;
+      Eigen::Vector3d gyro_bias = Eigen::Vector3d::Zero();
+      if (imu_handler_ && imu_handler_->calibrator())
+      {
+        n_obs = imu_handler_->calibrator()->numObservations();
+        calib_state = static_cast<int>(imu_handler_->calibrator()->calibrationState());
+        gyro_bias = imu_handler_->calibrator()->gyroBias();
+      }
       RCLCPP_INFO(this->get_logger(),
-          "[HEARTBEAT] wall_time=%.3f last_imu_ts=%.3f imu_meas_count=%d "
-          "imu_data_collection=1 imu_calib_ready=%d is_stationary=%d",
+          "[HEARTBEAT] wall=%.3f imu_ts=%.3f imu_cnt=%d "
+          "calib_ready=%d calib_state=%d n_obs=%zu gyro_bias=[%.4f %.4f %.4f] stationary=%d",
           now, last_imu_msg_ts_, imu_meas_count_,
-          imu_calib_ready, vo_->isStationary());
+          imu_calib_ready, calib_state, n_obs,
+          gyro_bias.x(), gyro_bias.y(), gyro_bias.z(),
+          vo_->isStationary());
     }
 
     // --- Image conversion ---

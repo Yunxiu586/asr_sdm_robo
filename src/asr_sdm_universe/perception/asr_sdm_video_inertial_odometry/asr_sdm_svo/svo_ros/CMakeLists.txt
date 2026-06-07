@@ -145,11 +145,11 @@ install(TARGETS vo vio benchmark imu camera
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(DIRECTORY include/
-  DESTINATION include
+install(DIRECTORY include/ launch param
+  DESTINATION share/${PROJECT_NAME}
 )
 
-install(DIRECTORY launch param
+install(FILES rviz_config.rviz
   DESTINATION share/${PROJECT_NAME}
 )
 

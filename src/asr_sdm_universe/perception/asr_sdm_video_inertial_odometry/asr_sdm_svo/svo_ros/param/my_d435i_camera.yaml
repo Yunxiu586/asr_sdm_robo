@@ -1,0 +1,52 @@
+# Intel RealSense D435i - Camera Parameters for SVO
+# Extracted from bag: d435if_20260530_080612_resized
+# CameraInfo: width=640, height=480, distortion=[0,0,0,0,0]
+# Image encoding: rgb8
+#
+# NOTE: D435i has zero distortion in the bag CameraInfo, which causes
+# errorMultiplier2 = 1/fx = 1/452.97 ≈ 0.0022. This makes SVO's
+# default reproj_thresh=2.0px extremely strict in normalized units.
+# Fixed by setting reproj_thresh=0.01 and poseoptim_thresh=0.005.
+
+/**:
+  ros__parameters:
+    # === Camera Model (Pinhole, no distortion) ===
+    cam_model: Pinhole
+    cam_width: 640
+    cam_height: 480
+    cam_fx: 452.9725341796875
+    cam_fy: 603.8680013020833
+    cam_cx: 330.5947570800781
+    cam_cy: 259.4551798502604
+    cam_d0: 0.0
+    cam_d1: 0.0
+    cam_d2: 0.0
+    cam_d3: 0.0
+
+    # === SVO Algorithm Parameters ===
+    # Grid size: smaller cells = more features
+    grid_size: 15
+    max_n_kfs: 10
+    # More features for robustness in indoor scenes
+    max_fts: 250
+    triang_min_corner_score: 3.0
+    # === Key thresholds adjusted for D435i zero-distortion (errorMultiplier2 ≈ 1/fx ≈ 0.0022)
+    # reproj_thresh in normalized units: 0.02 ≈ 9px (lenient for robustness)
+    # poseoptim_thresh in normalized units: 0.01 ≈ 4.5px
+    reproj_thresh: 0.05
+    poseoptim_thresh: 0.03
+    kfselect_mindist: 0.05
+    map_scale: 1.0
+    # Very relaxed quality thresholds — tracking should survive with few features
+    quality_min_fts: 5
+    quality_max_drop_fts: 80
+    n_pyr_levels: 4
+    max_epi_search_steps: 15000
+    fast_type: 12
+    # Relaxed initialization for easier startup
+    init_min_disparity: 3.0
+    init_min_tracked: 10
+    init_min_inliers: 3
+    patch_match_thresh_factor: 1.5
+    subpix_n_iter: 20
+    loba_num_iter: 0

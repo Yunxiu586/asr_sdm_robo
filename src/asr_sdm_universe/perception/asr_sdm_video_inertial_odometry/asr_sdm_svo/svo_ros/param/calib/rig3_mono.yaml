@@ -1,0 +1,62 @@
+# IMU Extrinsics and Calibration - Rig3
+# Format: EuRoC YAML (matches rpg_svo_pro_open/svo_ros/param/calib/euroc_mono.yaml)
+# Camera: Intel RealSense D405 (downward-looking, 752x480)
+# IMU: HiWonder 10-axis (co-located on rig)
+#
+# NOTE: Since camera and IMU are on the same rigid body with no known
+# factory extrinsics, T_cam_imu is set to identity. The IMU orientation
+# (gravity direction) is used for IMU prior only; absolute rotation
+# is still established by the visual front-end.
+
+label: "Rig3"
+id: 5d7e4a8c1b2f3e9a6d0c1b2f3e5a7d9c
+cameras:
+- camera:
+    label: cam0
+    id: d405_752x480_mono8
+    line-delay-nanoseconds: 0
+    image_height: 480
+    image_width: 752
+    type: pinhole
+    intrinsics:
+      cols: 1
+      rows: 4
+      data: [414.53614481293, 414.284429350582, 348.804988446924, 240.076451079671]
+    distortion:
+      type: radial-tangential
+      parameters:
+        cols: 1
+        rows: 4
+        data: [-0.283076309221788, 0.0666741033311962,
+               0.000895882002804517, 0.000778261034630782]
+  # T_B_C: Transform from IMU body frame to Camera frame
+  # Identity means camera and IMU share the same origin and axes.
+  # For a physical rig with known extrinsics, replace with measured values.
+  T_B_C:
+    cols: 4
+    rows: 4
+    data: [1.0, 0.0, 0.0, 0.0,
+           0.0, 1.0, 0.0, 0.0,
+           0.0, 0.0, 1.0, 0.0,
+           0.0, 0.0, 0.0, 1.0]
+
+imu_params:
+  delay_imu_cam: 0.0
+  max_imu_delta_t: 0.1
+  acc_max: 200.0
+  omega_max: 20.0
+  sigma_omega_c: 1.0e-4
+  sigma_acc_c: 1.0e-3
+  sigma_omega_bias_c: 1.0e-6
+  sigma_acc_bias_c: 1.0e-5
+  sigma_integration: 0.0
+  g: 9.81
+  imu_rate: 200.0
+
+imu_initialization:
+  velocity: [0.0, 0.0, 0.0]
+  omega_bias: [0.0, 0.0, 0.0]
+  acc_bias: [0.0, 0.0, 0.0]
+  velocity_sigma: 0.1
+  omega_bias_sigma: 0.01
+  acc_bias_sigma: 0.1
