@@ -4,6 +4,7 @@
 
 #include <asr_sdm_levmar_solver/levmar.hpp>
 
+#include <chrono>
 #include <cstdio>
 #include <vector>
 
@@ -35,15 +36,16 @@ protected:
     }
 };
 
-void print_result(const levmar::Result<double>& r, const std::vector<double>& p) {
+void print_result(const levmar::Result<double>& r, const std::vector<double>& p,
+                  double elapsed_ms) {
     const auto msg = levmar::strerror(r.stop_reason);
     std::printf("status=%d stop=%d (%.*s)\n",
                 static_cast<int>(r.status),
                 static_cast<int>(r.stop_reason),
                 static_cast<int>(msg.size()), msg.data());
-    std::printf("error: %.6e -> %.6e  iters=%d  fevals=%d  jevals=%d\n",
+    std::printf("error: %.6e -> %.6e  iters=%d  fevals=%d  jevals=%d  time=%.3f ms\n",
                 r.initial_error, r.final_error,
-                r.iterations, r.function_evals, r.jacobian_evals);
+                r.iterations, r.function_evals, r.jacobian_evals, elapsed_ms);
     std::printf("solution: p0=%.6f p1=%.6f\n\n", p[0], p[1]);
 }
 
@@ -54,14 +56,17 @@ int main() {
     const std::vector<double> target(n, 0.0);
 
     levmar::Parameters<double> params;
-    params.max_iterations = 1000;
+    params.max_iterations = 10000;
 
     std::printf("=== Free-function / lambda style ===\n");
     {
         std::vector<double> p{-1.2, 1.0};
+        const auto t0 = std::chrono::steady_clock::now();
         const auto result = levmar::minimize(
             p, target, rosenbrock_residual, rosenbrock_jacobian, params);
-        print_result(result, p);
+        const double elapsed_ms = std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - t0).count();
+        print_result(result, p, elapsed_ms);
         if (!result) return 1;
     }
 
@@ -69,8 +74,11 @@ int main() {
     {
         std::vector<double> p{-1.2, 1.0};
         RosenbrockProblem problem;
+        const auto t0 = std::chrono::steady_clock::now();
         const auto result = problem.run(p, target, params);
-        print_result(result, p);
+        const double elapsed_ms = std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - t0).count();
+        print_result(result, p, elapsed_ms);
         return result ? 0 : 1;
     }
 }
