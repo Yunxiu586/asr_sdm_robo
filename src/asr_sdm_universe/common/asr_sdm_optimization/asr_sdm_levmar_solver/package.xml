@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>asr_sdm_levmar_solver</name>
+  <version>0.1.0</version>
+  <description>C++17 Levenberg-Marquardt non-linear least squares solver (levmar 2.6).</description>
+  <maintainer email="micheal.wang@hotmail.com">michael</maintainer>
+  <license>GPL-2.0-or-later</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
