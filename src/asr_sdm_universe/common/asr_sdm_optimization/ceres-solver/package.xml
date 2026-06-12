@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>ceres-solver</name>
+  <version>2.0.0</version>
+  <description>
+    Minimal Ceres Solver for VINS-MONO-ROS2 (Eigen sparse, dense Schur, miniglog;
+    no abseil, googletest, glog, gflags, CUDA, LAPACK, or SuiteSparse).
+  </description>
+  <maintainer email="ceres-solver@googlegroups.com">
+    The Ceres Solver Authors
+  </maintainer>
+  <license>New BSD</license>
+  <url type="website">http://ceres-solver.org/</url>
+
+  <buildtool_depend>cmake</buildtool_depend>
+  <depend>eigen</depend>
+
+  <export>
+    <build_type>cmake</build_type>
+  </export>
+</package>
