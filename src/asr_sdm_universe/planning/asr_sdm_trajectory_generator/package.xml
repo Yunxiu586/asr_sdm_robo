@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematype="xml"?>
+<package format="3">
+  <name>asr_sdm_trajectory_generator</name>
+  <version>0.0.0</version>
+  <description>Polynomial trajectory generation library (ROS 2)</description>
+
+  <maintainer email="bzhouai@todo.todo">bzhouai</maintainer>
+  <license>TODO</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- Core library (polynomial_traj) is pure Eigen and has no ROS deps. -->
+  <!-- The following are only needed by the optional traj_generator demo. -->
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>visualization_msgs</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
