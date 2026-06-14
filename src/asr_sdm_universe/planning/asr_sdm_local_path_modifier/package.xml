@@ -2,19 +2,33 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematype="xml"?>
 <package format="3">
   <name>asr_sdm_local_path_modifier</name>
-  <version>0.0.0</version>
-  <description>The asr_sdm_local_path_modifier package (ROS 2)</description>
-
-  <maintainer email="bzhouai@todo.todo">bzhouai</maintainer>
-  <license>TODO</license>
+  <version>0.1.0</version>
+  <description>C++ Fast-Planner-style topology PRM local path modifier library plus RViz virtual-obstacle test node.</description>
+  <maintainer email="carveyrtrail@163.com">Willianms</maintainer>
+  <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>rclcpp</depend>
-  <depend>std_msgs</depend>
-  <depend>visualization_msgs</depend>
-  <depend>cv_bridge</depend>
+  <!-- Core library dependency. -->
+  <depend>eigen</depend>
   <depend>asr_sdm_esdf_map</depend>
+
+  <!-- RViz test node dependencies. They are intentionally not exported by CMake targets. -->
+  <build_depend>rclcpp</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>nav_msgs</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>visualization_msgs</build_depend>
+
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

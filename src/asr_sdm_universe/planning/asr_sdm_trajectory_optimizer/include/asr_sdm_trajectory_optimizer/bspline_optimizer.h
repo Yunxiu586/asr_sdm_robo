@@ -29,6 +29,7 @@
 #include <Eigen/Eigen>
 #include <memory>
 #include <asr_sdm_esdf_map/edt_environment.hpp>
+#include <map_query_interface.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 // Gradient and elasitc band optimization
@@ -55,6 +56,8 @@ public:
 
   /* main API */
   void            setEnvironment(const EDTEnvironment::Ptr& env);
+  void            setMapQuery(const asr_sdm_esdf_map::MapQueryInterface* map);
+  void            setMapQuery(const std::shared_ptr<const asr_sdm_esdf_map::MapQueryInterface>& map);
   void            setParam(const std::shared_ptr<rclcpp::Node>& nh);
   Eigen::MatrixXd BsplineOptimizeTraj(const Eigen::MatrixXd& points, const double& ts,
                                       const int& cost_function, int max_num_id, int max_time_id);
@@ -79,6 +82,8 @@ public:
 
 private:
   EDTEnvironment::Ptr edt_environment_;
+  const asr_sdm_esdf_map::MapQueryInterface* map_query_ = nullptr;
+  std::shared_ptr<const asr_sdm_esdf_map::MapQueryInterface> map_query_holder_;
 
   // main input
   Eigen::MatrixXd control_points_;     // B-spline control points, N x dim

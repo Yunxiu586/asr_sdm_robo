@@ -10,7 +10,10 @@ endif()
 
 set(CMAKE_POLICY_DEFAULT_CMP0074 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0144 NEW)
-set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE BOOL "Suppress CMake developer warnings")
+set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE BOOL "Suppress CMake developer warnings" FORCE)
+
+unset(FLANN_ROOT CACHE)
+unset(FLANN_ROOT)
 
 project(asr_sdm_esdf_map)
 

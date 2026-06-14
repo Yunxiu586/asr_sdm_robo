@@ -84,6 +84,15 @@ RvizPlanningNode::RvizPlanningNode(const rclcpp::NodeOptions & options)
     this->get_parameter("optimizer.extra_clearance").as_double(),
     this->get_parameter("optimizer.corridor_weight").as_double()});
 
+  GuidancePlannerOptions guidance_options;
+  guidance_options.astar = astar_planner_.options();
+  guidance_options.corridor = corridor_generator_.options();
+  guidance_options.optimizer = optimizer_.options();
+  guidance_options.use_optimized_only_if_safe = use_optimized_only_if_safe_;
+  guidance_options.project_start_goal_to_safe = project_start_goal_to_safe_;
+  guidance_options.safe_point_search_radius = safe_point_search_radius_;
+  guidance_planner_.setOptions(guidance_options);
+
   if (map_source_ != "binary") {
     occupancy_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       occupancy_map_topic_, rclcpp::SensorDataQoS(),
@@ -97,32 +106,18 @@ RvizPlanningNode::RvizPlanningNode(const rclcpp::NodeOptions & options)
     this->get_parameter("topics.clicked_point").as_string(), 10,
     std::bind(&RvizPlanningNode::clickedPointCallback, this, std::placeholders::_1));
 
-  start_point_sub_ = this->create_subscription<geometry_msgs::msg::PointStamped>(
-    this->get_parameter("topics.start_point").as_string(), 10,
-    std::bind(&RvizPlanningNode::startPointCallback, this, std::placeholders::_1));
-
-  goal_point_sub_ = this->create_subscription<geometry_msgs::msg::PointStamped>(
-    this->get_parameter("topics.goal_point").as_string(), 10,
-    std::bind(&RvizPlanningNode::goalPointCallback, this, std::placeholders::_1));
-
-  initial_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
-    this->get_parameter("topics.initialpose").as_string(), 10,
-    std::bind(&RvizPlanningNode::initialPoseCallback, this, std::placeholders::_1));
-
-  goal_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-    this->get_parameter("topics.goal_pose").as_string(), 10,
-    std::bind(&RvizPlanningNode::goalPoseCallback, this, std::placeholders::_1));
-
-  raw_path_pub_ = this->create_publisher<nav_msgs::msg::Path>("/planning/astar_path", 10);
-  path_pub_ = this->create_publisher<nav_msgs::msg::Path>("/planning/path", 10);
-  waypoints_pub_ = this->create_publisher<nav_msgs::msg::Path>(waypoints_topic_, 10);
-  raw_marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("/planning/astar_path_marker", 10);
-  path_marker_pub_ =
-    this->create_publisher<visualization_msgs::msg::Marker>("/planning/path_marker", 10);
+  rclcpp::QoS waypoints_qos(rclcpp::KeepLast(1));
+  waypoints_qos.reliable();
+  waypoints_qos.transient_local();
+  waypoints_pub_ = this->create_publisher<nav_msgs::msg::Path>(waypoints_topic_, waypoints_qos);
+  astar_marker_pub_ =
+    this->create_publisher<visualization_msgs::msg::Marker>("/planning/astar_path_marker", waypoints_qos);
+  waypoints_marker_pub_ =
+    this->create_publisher<visualization_msgs::msg::Marker>("/planning/waypoints_marker", waypoints_qos);
   start_goal_marker_pub_ =
-    this->create_publisher<visualization_msgs::msg::Marker>("/planning/start_goal_marker", 10);
+    this->create_publisher<visualization_msgs::msg::Marker>("/planning/start_goal_marker", waypoints_qos);
   corridor_marker_pub_ =
-    this->create_publisher<visualization_msgs::msg::MarkerArray>(corridor_marker_topic_, 10);
+    this->create_publisher<visualization_msgs::msg::MarkerArray>(corridor_marker_topic_, waypoints_qos);
   rclcpp::QoS occupied_map_qos(1);
   occupied_map_qos.reliable();
   occupied_map_qos.transient_local();
@@ -153,7 +148,7 @@ RvizPlanningNode::RvizPlanningNode(const rclcpp::NodeOptions & options)
 
   RCLCPP_INFO(
     this->get_logger(),
-    "3D A* + sphere corridor + L-BFGS planner started. Map source: %s. Occupancy topic: %s. ESDF topic: %s. Waypoints topic: %s. Corridor marker: %s. Use RViz Publish Point twice: start then goal.",
+    "3D A* + sphere corridor + L-BFGS planner started. Map source: %s. Occupancy topic: %s. ESDF topic: %s. Published path topic: %s. Corridor marker: %s. Use RViz Publish Point (/clicked_point) twice: start then goal.",
     map_source_.c_str(), occupancy_map_topic_.c_str(), esdf_map_topic_.c_str(),
     waypoints_topic_.c_str(), corridor_marker_topic_.c_str());
 }
@@ -164,10 +159,6 @@ void RvizPlanningNode::loadParameters()
   this->declare_parameter("topics.occupancy_map", "/esdf_map/occupancy_inflate");
   this->declare_parameter("topics.esdf_map", "/esdf_map/esdf_distance");
   this->declare_parameter("topics.clicked_point", "/clicked_point");
-  this->declare_parameter("topics.start_point", "/planning/start");
-  this->declare_parameter("topics.goal_point", "/planning/goal");
-  this->declare_parameter("topics.initialpose", "/initialpose");
-  this->declare_parameter("topics.goal_pose", "/goal_pose");
   this->declare_parameter("topics.waypoints", "/planning/waypoints");
 
   this->declare_parameter("map.source", "binary");
@@ -869,35 +860,6 @@ void RvizPlanningNode::clickedPointCallback(geometry_msgs::msg::PointStamped::Co
   setGoalAndPlan(point);
 }
 
-void RvizPlanningNode::startPointCallback(geometry_msgs::msg::PointStamped::ConstSharedPtr msg)
-{
-  Eigen::Vector3d point = pointMsgToEigen(msg->point);
-  setStart(point);
-  waiting_for_goal_click_ = true;
-}
-
-void RvizPlanningNode::goalPointCallback(geometry_msgs::msg::PointStamped::ConstSharedPtr msg)
-{
-  Eigen::Vector3d point = pointMsgToEigen(msg->point);
-  setGoalAndPlan(point);
-}
-
-void RvizPlanningNode::initialPoseCallback(
-  geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr msg)
-{
-  Eigen::Vector3d point = poseMsgToEigen(msg->pose.pose);
-  point.z() = default_planning_z_;
-  setStart(point);
-  waiting_for_goal_click_ = true;
-}
-
-void RvizPlanningNode::goalPoseCallback(geometry_msgs::msg::PoseStamped::ConstSharedPtr msg)
-{
-  Eigen::Vector3d point = poseMsgToEigen(msg->pose);
-  point.z() = default_planning_z_;
-  setGoalAndPlan(point);
-}
-
 void RvizPlanningNode::setStart(const Eigen::Vector3d & start)
 {
   start_ = start;
@@ -928,193 +890,45 @@ void RvizPlanningNode::runPlanning()
     return;
   }
 
-  const auto cycle_start_time = std::chrono::steady_clock::now();
-  double start_projection_time_ms = 0.0;
-  double goal_projection_time_ms = 0.0;
-  double astar_time_ms = 0.0;
-  double corridor_time_ms = 0.0;
-  double optimizer_time_ms = 0.0;
-
-  const auto makeTimingSummary = [&] (const double total_time_ms) {
-    const double projection_time_ms = start_projection_time_ms + goal_projection_time_ms;
-    const double accounted_time_ms =
-      projection_time_ms + astar_time_ms + corridor_time_ms + optimizer_time_ms;
-    const double other_time_ms = std::max(0.0, total_time_ms - accounted_time_ms);
-
-    std::ostringstream timing;
-    timing << "Guidance planner cycle time: total=" << total_time_ms << " ms"
-           << ", projection=" << projection_time_ms << " ms"
-           << " (start=" << start_projection_time_ms << " ms"
-           << ", goal=" << goal_projection_time_ms << " ms)"
-           << ", astar=" << astar_time_ms << " ms"
-           << ", corridor=" << corridor_time_ms << " ms"
-           << ", optimizer=" << optimizer_time_ms << " ms"
-           << ", other=" << other_time_ms << " ms";
-    return timing.str();
-  };
-
-  Eigen::Vector3d planning_start = start_;
-  Eigen::Vector3d planning_goal = goal_;
-  std::string start_projection_status;
-  std::string goal_projection_status;
-  bool start_projected = false;
-  bool goal_projected = false;
-
-  if (project_start_goal_to_safe_ && corridor_generator_.options().enabled) {
-    const auto start_projection_start_time = std::chrono::steady_clock::now();
-    const bool start_projection_success =
-      findNearestSafePlanningPoint(start_, "start", planning_start, start_projection_status);
-    const auto start_projection_end_time = std::chrono::steady_clock::now();
-    start_projection_time_ms = std::chrono::duration<double, std::milli>(
-      start_projection_end_time - start_projection_start_time).count();
-
-    if (!start_projection_success) {
-      const auto cycle_end_time = std::chrono::steady_clock::now();
-      const double total_time_ms =
-        std::chrono::duration<double, std::milli>(cycle_end_time - cycle_start_time).count();
-      const std::string timing = makeTimingSummary(total_time_ms);
-
-      clearCorridorMarkers();
-      RCLCPP_WARN(this->get_logger(), "%s", start_projection_status.c_str());
-      RCLCPP_INFO(this->get_logger(), "%s", timing.c_str());
-      publishStatusText(start_projection_status + " | " + timing);
-      return;
-    }
-
-    const auto goal_projection_start_time = std::chrono::steady_clock::now();
-    const bool goal_projection_success =
-      findNearestSafePlanningPoint(goal_, "goal", planning_goal, goal_projection_status);
-    const auto goal_projection_end_time = std::chrono::steady_clock::now();
-    goal_projection_time_ms = std::chrono::duration<double, std::milli>(
-      goal_projection_end_time - goal_projection_start_time).count();
-
-    if (!goal_projection_success) {
-      const auto cycle_end_time = std::chrono::steady_clock::now();
-      const double total_time_ms =
-        std::chrono::duration<double, std::milli>(cycle_end_time - cycle_start_time).count();
-      const std::string timing = makeTimingSummary(total_time_ms);
-
-      clearCorridorMarkers();
-      RCLCPP_WARN(this->get_logger(), "%s", goal_projection_status.c_str());
-      RCLCPP_INFO(this->get_logger(), "%s", timing.c_str());
-      publishStatusText(goal_projection_status + " | " + timing);
-      return;
-    }
-
-    start_projected = (planning_start - start_).norm() > 0.5 * map_.resolution();
-    goal_projected = (planning_goal - goal_).norm() > 0.5 * map_.resolution();
-    if (start_projected || goal_projected) {
-      start_ = planning_start;
-      goal_ = planning_goal;
-      publishStartGoalMarker();
-      RCLCPP_INFO(
-        this->get_logger(),
-        "Projected RViz raw points to safe corridor points: %s%s%s",
-        start_projected ? start_projection_status.c_str() : "",
-        (start_projected && goal_projected) ? " | " : "",
-        goal_projected ? goal_projection_status.c_str() : "");
-    }
-  }
-
   RCLCPP_INFO(
     this->get_logger(), "Planning from [%.2f %.2f %.2f] to [%.2f %.2f %.2f]",
-    planning_start.x(), planning_start.y(), planning_start.z(),
-    planning_goal.x(), planning_goal.y(), planning_goal.z());
+    start_.x(), start_.y(), start_.z(), goal_.x(), goal_.y(), goal_.z());
 
-  const auto astar_start_time = std::chrono::steady_clock::now();
-  PlanResult plan = astar_planner_.plan(map_, planning_start, planning_goal);
-  const auto astar_end_time = std::chrono::steady_clock::now();
-  astar_time_ms = std::chrono::duration<double, std::milli>(astar_end_time - astar_start_time).count();
+  GuidancePlannerResult result = guidance_planner_.plan(map_, start_, goal_);
 
-  if (!plan.success) {
-    const auto cycle_end_time = std::chrono::steady_clock::now();
-    const double total_time_ms =
-      std::chrono::duration<double, std::milli>(cycle_end_time - cycle_start_time).count();
-    const std::string timing = makeTimingSummary(total_time_ms);
-
-    clearCorridorMarkers();
-    RCLCPP_WARN(this->get_logger(), "%s", plan.message.c_str());
-    RCLCPP_INFO(this->get_logger(), "%s", timing.c_str());
-    publishStatusText(plan.message + " | " + timing);
-    return;
+  if (result.start_projected || result.goal_projected) {
+    start_ = result.planning_start;
+    goal_ = result.planning_goal;
+    publishStartGoalMarker();
+    RCLCPP_INFO(
+      this->get_logger(),
+      "Projected RViz raw points to safe corridor points: %s%s%s",
+      result.start_projected ? result.start_projection_status.c_str() : "",
+      (result.start_projected && result.goal_projected) ? " | " : "",
+      result.goal_projected ? result.goal_projection_status.c_str() : "");
   }
 
-  publishPath(plan.raw_path, raw_path_pub_);
-  publishLineMarker(plan.raw_path, raw_marker_pub_, 0, 0.05, 0.1f, 0.4f, 1.0f, 0.95f);
+  if (!result.raw_path.empty()) {
+    publishLineMarker(result.raw_path, astar_marker_pub_, 0, 0.05, 0.1f, 0.4f, 1.0f, 0.95f);
+  }
 
-  SphereCorridorResult corridor;
-  std::vector<Eigen::Vector3d> optimizer_input = plan.raw_path;
-  const std::vector<CorridorSphere> * corridor_ptr = nullptr;
-
-  if (corridor_generator_.options().enabled) {
-    const auto corridor_start_time = std::chrono::steady_clock::now();
-    corridor = corridor_generator_.generate(map_, plan.raw_path, planning_start, planning_goal);
-    const auto corridor_end_time = std::chrono::steady_clock::now();
-    corridor_time_ms =
-      std::chrono::duration<double, std::milli>(corridor_end_time - corridor_start_time).count();
-
-    if (!corridor.success) {
-      const auto cycle_end_time = std::chrono::steady_clock::now();
-      const double total_time_ms =
-        std::chrono::duration<double, std::milli>(cycle_end_time - cycle_start_time).count();
-      const std::string timing = makeTimingSummary(total_time_ms);
-
-      clearCorridorMarkers();
-
-      const std::string status = plan.message + " | " + corridor.message + " | " + timing;
-      RCLCPP_WARN(this->get_logger(), "%s", status.c_str());
-      publishStatusText(status);
-      return;
-    }
-
-    optimizer_input = corridor.waypoints;
-    corridor_ptr = &corridor.spheres;
-    publishCorridorMarkers(corridor.spheres);
+  if (!result.corridor_spheres.empty()) {
+    publishCorridorMarkers(result.corridor_spheres);
   } else {
     clearCorridorMarkers();
   }
 
-  const auto optimizer_start_time = std::chrono::steady_clock::now();
-  OptimizerResult opt = optimizer_.optimize(optimizer_input, map_, corridor_ptr);
-  const auto optimizer_end_time = std::chrono::steady_clock::now();
-  optimizer_time_ms =
-    std::chrono::duration<double, std::milli>(optimizer_end_time - optimizer_start_time).count();
-
-  const auto cycle_end_time = std::chrono::steady_clock::now();
-  const double total_time_ms =
-    std::chrono::duration<double, std::milli>(cycle_end_time - cycle_start_time).count();
-
-  std::vector<Eigen::Vector3d> final_path = opt.path;
-  bool use_fallback = false;
-  if (!opt.success || (use_optimized_only_if_safe_ && !opt.path_safe)) {
-    use_fallback = true;
-    final_path = optimizer_input;
+  if (!result.success) {
+    RCLCPP_WARN(this->get_logger(), "%s", result.message.c_str());
+    publishStatusText(result.message);
+    return;
   }
 
-  publishPath(final_path, path_pub_);
-  publishPath(final_path, waypoints_pub_);
-  publishLineMarker(final_path, path_marker_pub_, 1, 0.08, 1.0f, 0.15f, 0.05f, 1.0f);
+  publishPath(result.final_waypoints, waypoints_pub_);
+  publishLineMarker(result.final_waypoints, waypoints_marker_pub_, 1, 0.08, 1.0f, 0.15f, 0.05f, 1.0f);
 
-  const std::string timing = makeTimingSummary(total_time_ms);
-
-  std::ostringstream status;
-  if (start_projected) {
-    status << start_projection_status << " | ";
-  }
-  if (goal_projected) {
-    status << goal_projection_status << " | ";
-  }
-  status << plan.message;
-  if (corridor_generator_.options().enabled) {
-    status << " | " << corridor.message;
-  }
-  status << " | " << opt.message << " | " << timing;
-  if (use_fallback) {
-    status << " | fallback: corridor/default waypoints published as path";
-  }
-
-  publishStatusText(status.str());
-  RCLCPP_INFO(this->get_logger(), "%s", status.str().c_str());
+  publishStatusText(result.message);
+  RCLCPP_INFO(this->get_logger(), "%s", result.message.c_str());
 }
 
 double RvizPlanningNode::corridorRequiredClearance() const
@@ -1142,8 +956,8 @@ bool RvizPlanningNode::findNearestSafePlanningPoint(
     query(axis) = std::clamp(query(axis), lower(axis), upper(axis));
   }
 
-  GridIndex seed_index;
-  if (!map_.worldToIndex(query, seed_index)) {
+  GridIndex current_index;
+  if (!map_.worldToIndex(query, current_index)) {
     std::ostringstream oss;
     oss << "Cannot project " << label << " point: point is outside map bounds.";
     status = oss.str();
@@ -1151,71 +965,177 @@ bool RvizPlanningNode::findNearestSafePlanningPoint(
   }
 
   const double required_clearance = corridorRequiredClearance();
-  const int max_radius_voxels = std::max(
-    0, static_cast<int>(std::ceil(safe_point_search_radius_ / map_.resolution())));
+  const double step_size = std::max(map_.resolution(), 1.0e-3);
+  const int max_steps = std::max(
+    1, static_cast<int>(std::ceil(safe_point_search_radius_ / step_size)));
   const double max_distance = safe_point_search_radius_ + 0.5 * map_.resolution();
+  const double min_progress = 1.0e-6;
 
-  bool found = false;
-  double best_score = std::numeric_limits<double>::infinity();
-  double best_clearance = 0.0;
-  Eigen::Vector3d best_point = query;
+  int inspected_points = 0;
+  int gradient_steps = 0;
+  double best_seen_clearance = -std::numeric_limits<double>::infinity();
+  Eigen::Vector3d best_seen_point = map_.indexToWorld(current_index);
 
-  for (int radius = 0; radius <= max_radius_voxels; ++radius) {
-    for (int dx = -radius; dx <= radius; ++dx) {
-      for (int dy = -radius; dy <= radius; ++dy) {
-        for (int dz = -radius; dz <= radius; ++dz) {
-          if (std::max({std::abs(dx), std::abs(dy), std::abs(dz)}) != radius) {
+  const auto updateBestSeen = [&](const GridIndex & index, const double clearance) {
+    if (std::isfinite(clearance) && clearance > best_seen_clearance) {
+      best_seen_clearance = clearance;
+      best_seen_point = map_.indexToWorld(index);
+    }
+  };
+
+  const auto isSafeIndex = [&](const GridIndex & index, double & clearance) -> bool {
+    ++inspected_points;
+    if (!map_.isInMap(index) || !map_.isFree(index)) {
+      clearance = 0.0;
+      return false;
+    }
+
+    clearance = map_.distance(index);
+    updateBestSeen(index, clearance);
+    return std::isfinite(clearance) && clearance >= required_clearance;
+  };
+
+  const auto isUsableGradientIndex = [&](const GridIndex & index, double & clearance) -> bool {
+    ++inspected_points;
+    if (!map_.isInMap(index)) {
+      clearance = 0.0;
+      return false;
+    }
+
+    clearance = map_.distance(index);
+    updateBestSeen(index, clearance);
+    return std::isfinite(clearance);
+  };
+
+  const auto chooseDiscreteGradientNeighbor = [
+    &](const GridIndex & center, const double center_clearance,
+       GridIndex & next_index, double & next_clearance) -> bool
+  {
+    bool found = false;
+    double best_score = -std::numeric_limits<double>::infinity();
+    GridIndex best_index = center;
+    double best_clearance = center_clearance;
+
+    for (int dx = -1; dx <= 1; ++dx) {
+      for (int dy = -1; dy <= 1; ++dy) {
+        for (int dz = -1; dz <= 1; ++dz) {
+          if (dx == 0 && dy == 0 && dz == 0) {
             continue;
           }
 
-          const GridIndex candidate_index{seed_index.x + dx, seed_index.y + dy, seed_index.z + dz};
-          if (!map_.isInMap(candidate_index) || !map_.isFree(candidate_index)) {
+          const GridIndex candidate{center.x + dx, center.y + dy, center.z + dz};
+          const Eigen::Vector3d candidate_point = map_.indexToWorld(candidate);
+          if ((candidate_point - seed).norm() > max_distance) {
             continue;
           }
 
-          const Eigen::Vector3d candidate = map_.indexToWorld(candidate_index);
-          const double distance_to_seed = (candidate - seed).norm();
-          if (distance_to_seed > max_distance) {
+          double clearance = 0.0;
+          if (!isUsableGradientIndex(candidate, clearance)) {
             continue;
           }
 
-          const double clearance = map_.distance(candidate_index);
-          if (!std::isfinite(clearance) || clearance < required_clearance) {
-            continue;
-          }
-
-          const double score = (candidate - seed).squaredNorm();
-          if (score + 1.0e-12 < best_score) {
+          // This is a local discrete ESDF-gradient ascent step, not the old global radius search.
+          // The distance term dominates. The tiny shift penalty keeps the projected point near
+          // the original RViz click when several neighbors have nearly identical ESDF values.
+          const double shift_penalty = 1.0e-4 * (candidate_point - seed).squaredNorm();
+          const double score = clearance - shift_penalty;
+          if (clearance > center_clearance + min_progress && score > best_score) {
             found = true;
             best_score = score;
+            best_index = candidate;
             best_clearance = clearance;
-            best_point = candidate;
           }
         }
       }
     }
+
+    if (!found) {
+      return false;
+    }
+
+    next_index = best_index;
+    next_clearance = best_clearance;
+    return true;
+  };
+
+  for (int iter = 0; iter <= max_steps; ++iter) {
+    double current_clearance = 0.0;
+    if (isSafeIndex(current_index, current_clearance)) {
+      safe_point = map_.indexToWorld(current_index);
+      std::ostringstream oss;
+      oss << "gradient-projected " << label << " from ["
+          << seed.x() << ", " << seed.y() << ", " << seed.z() << "] to ["
+          << safe_point.x() << ", " << safe_point.y() << ", " << safe_point.z()
+          << "], shift=" << (safe_point - seed).norm()
+          << " m, clearance=" << current_clearance
+          << " m, required>=" << required_clearance
+          << ", gradient_steps=" << gradient_steps
+          << ", inspected_points=" << inspected_points;
+      status = oss.str();
+      return true;
+    }
+
+    double usable_current_clearance = 0.0;
+    const bool current_has_finite_esdf = isUsableGradientIndex(current_index, usable_current_clearance);
+    if (!current_has_finite_esdf) {
+      usable_current_clearance = -std::numeric_limits<double>::infinity();
+    }
+
+    GridIndex next_index = current_index;
+    double next_clearance = usable_current_clearance;
+    bool have_next = false;
+
+    const Eigen::Vector3d current_point = map_.indexToWorld(current_index);
+    const Eigen::Vector3d gradient = map_.gradient(current_point);
+    if (std::isfinite(gradient.x()) && std::isfinite(gradient.y()) && std::isfinite(gradient.z()) &&
+        gradient.norm() > 1.0e-6)
+    {
+      Eigen::Vector3d proposal = current_point + step_size * gradient.normalized();
+      for (int axis = 0; axis < 3; ++axis) {
+        proposal(axis) = std::clamp(proposal(axis), lower(axis), upper(axis));
+      }
+
+      GridIndex proposal_index;
+      if ((proposal - seed).norm() <= max_distance && map_.worldToIndex(proposal, proposal_index) &&
+          !(proposal_index == current_index))
+      {
+        double proposal_clearance = 0.0;
+        if (isUsableGradientIndex(proposal_index, proposal_clearance) &&
+            proposal_clearance > usable_current_clearance + min_progress)
+        {
+          next_index = proposal_index;
+          next_clearance = proposal_clearance;
+          have_next = true;
+        }
+      }
+    }
+
+    if (!have_next) {
+      have_next = chooseDiscreteGradientNeighbor(current_index, usable_current_clearance, next_index, next_clearance);
+    }
+
+    if (!have_next || next_index == current_index) {
+      break;
+    }
+
+    current_index = next_index;
+    ++gradient_steps;
+
+    (void)next_clearance;
   }
 
-  if (!found) {
-    std::ostringstream oss;
-    oss << "Cannot project " << label << " point to a safe corridor point within "
-        << safe_point_search_radius_ << " m: required ESDF clearance >= "
-        << required_clearance << ". Try selecting a point farther from obstacles, increasing "
-        << "selection.safe_point_search_radius, or reducing corridor.safety_margin/min_radius.";
-    status = oss.str();
-    return false;
-  }
-
-  safe_point = best_point;
   std::ostringstream oss;
-  oss << "projected " << label << " from ["
-      << seed.x() << ", " << seed.y() << ", " << seed.z() << "] to ["
-      << safe_point.x() << ", " << safe_point.y() << ", " << safe_point.z()
-      << "], shift=" << (safe_point - seed).norm()
-      << " m, clearance=" << best_clearance
-      << " m, required>=" << required_clearance;
+  oss << "Cannot gradient-project " << label << " point to a safe corridor point within "
+      << safe_point_search_radius_ << " m: required ESDF clearance >= "
+      << required_clearance;
+  if (std::isfinite(best_seen_clearance)) {
+    oss << ", best reached clearance=" << best_seen_clearance
+        << " m at shift=" << (best_seen_point - seed).norm() << " m";
+  }
+  oss << ". Try selecting a point farther from obstacles, increasing "
+      << "selection.safe_point_search_radius, or reducing corridor.safety_margin/min_radius.";
   status = oss.str();
-  return true;
+  return false;
 }
 
 Eigen::Vector3d RvizPlanningNode::pointMsgToEigen(const geometry_msgs::msg::Point & point) const
@@ -1225,11 +1145,6 @@ Eigen::Vector3d RvizPlanningNode::pointMsgToEigen(const geometry_msgs::msg::Poin
     out.z() = default_planning_z_;
   }
   return out;
-}
-
-Eigen::Vector3d RvizPlanningNode::poseMsgToEigen(const geometry_msgs::msg::Pose & pose) const
-{
-  return Eigen::Vector3d(pose.position.x, pose.position.y, pose.position.z);
 }
 
 void RvizPlanningNode::publishPath(

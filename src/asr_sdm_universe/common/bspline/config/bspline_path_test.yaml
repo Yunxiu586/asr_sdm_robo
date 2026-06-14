@@ -1,0 +1,41 @@
+bspline_test_node:
+  ros__parameters:
+    frame_id: world
+
+    topics:
+      # Test-mode input comes from local_path_modifier topo candidate MarkerArray.
+      # The bspline C++ library still processes one candidate path per call; the test node loops over all candidates.
+      input_candidates_marker: /planning/topo_candidate_paths
+      bspline_path: /planning/bspline_path
+      bspline_candidate_paths_marker: /planning/bspline_candidate_paths
+      # Optimizer test input. std_msgs/msg/Float64MultiArray, encoded as one or more Eigen::MatrixXd blocks.
+      ctrl_points: /planning/bspline_ctrl_points
+      # RViz-only visualization of the same control points.
+      ctrl_points_marker: /planning/bspline_ctrl_points_marker
+      virtual_obstacles_marker: /planning/virtual_obstacles
+      collision_samples_marker: /planning/bspline_collision_samples
+
+    bspline:
+      # Fast-Planner parameterizeToBspline is cubic-specific.
+      order: 3
+      # Knot interval for the generated uniform cubic B-spline.
+      # Smaller ts gives faster trajectory but may violate dynamic limits.
+      ts: 0.20
+      # Sampling interval for publishing nav_msgs/Path / MarkerArray.
+      sample_dt: 0.02
+      min_input_point_spacing: 0.001
+      max_reallocation_iter: 8
+      fallback_to_input_on_failure: true
+
+    physical_limits:
+      max_vel: 2.0
+      max_acc: 3.0
+
+    collision:
+      # Current standalone test checks sampled B-splines against virtual obstacles
+      # published by asr_sdm_local_path_modifier. ESDF-based checking can be added
+      # later when optimizer / map query is connected.
+      enable_virtual_obstacle_check: true
+      clearance: 0.03
+      default_virtual_obstacle_radius: 0.35
+      fallback_to_input_on_collision: true
