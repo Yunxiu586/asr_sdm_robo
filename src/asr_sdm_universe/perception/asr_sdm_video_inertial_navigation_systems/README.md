@@ -158,8 +158,19 @@ cd /home/lxy/asr_sdm_robo
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
-# 1) build
+# 1) build —— 首次构建需要把 VINS 完整链都编一遍。
+# 单独 build feature_tracker 是不够的，d435i_combined.launch.py
+# 会通过 ament_index 找 config_pkg/vins_estimator/pose_graph 的
+# install 目录（不能用 src/），缺一个就报
+# "package 'config_pkg' not found" 然后 launch 整个不启。
+#
+# a) 增量：只重建本次改了源码的包（已经 build 过全链时用这个）
 colcon build --packages-select feature_tracker
+
+# b) 干净环境 / 第一次构建：把 VINS 完整链全部 build
+colcon build --packages-up-to camera_model feature_tracker \
+                                 vins_estimator pose_graph \
+                                 benchmark_publisher ar_demo config_pkg
 
 # 2) launch（同时跑 ORIGINAL + SPARSE1，对比用）
 ros2 launch src/asr_sdm_universe/perception/asr_sdm_video_inertial_navigation_systems/vins_estimator/launch/d435i_combined.launch.py enable_sparse1:=1
