@@ -5,14 +5,10 @@ astar_lbfgs_path_planner:
     topics.occupancy_map: "/esdf_map/occupancy_inflate"
     topics.esdf_map: "/esdf_map/esdf_distance"
     topics.clicked_point: "/clicked_point"
-    topics.start_point: "/planning/start"
-    topics.goal_point: "/planning/goal"
-    topics.initialpose: "/initialpose"
-    topics.goal_pose: "/goal_pose"
     topics.waypoints: "/planning/waypoints"
 
-    # Default: use offline binary map files in this package's installed share/maps directory.
-    # Put occupancy.bin and esdf.bin into asr_sdm_guidance_planner/maps/ before building/installing.
+    # Default: use offline binary map files from this package, resolved relative to its installed share directory.
+    # Put occupancy.bin and esdf.bin into the package-local maps/ directory before building/installing.
     # Set map.source to "topic" to subscribe to both live map topics instead.
     map.source: "binary"
     binary_map.directory: "maps"
@@ -54,13 +50,14 @@ astar_lbfgs_path_planner:
     map.skip_repeated_occupancy_with_same_point_count: true
     map.skip_repeated_esdf_with_same_point_count: true
 
-    # RViz Publish Point usually provides a z value from the clicked 3D point.
-    # If you use 2D Pose Estimate / 2D Goal Pose, default_planning_z is used.
+    # RViz Publish Point provides start/goal through /clicked_point.
     selection.clicked_point_use_msg_z: true
     selection.default_planning_z: 0.5
     selection.use_optimized_only_if_safe: true
     # If the raw RViz click is too close to an obstacle or outside the ESDF-safe region,
-    # automatically use the nearest point with enough ESDF clearance for corridor generation.
+    # project it along the ESDF increasing-gradient direction until it reaches enough
+    # clearance for corridor generation. This radius is now only the maximum gradient
+    # travel distance, not a full 3D voxel search radius.
     selection.project_start_goal_to_safe: true
     selection.safe_point_search_radius: 4.0
 

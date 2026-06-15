@@ -1,6 +1,8 @@
 #ifndef ASR_SDM_GUIDANCE_PLANNER_COMMON_TYPES_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_COMMON_TYPES_HPP_
 
+#include <map_query_interface.hpp>
+
 #include <Eigen/Core>
 
 #include <string>
@@ -9,17 +11,8 @@
 namespace asr_sdm_guidance_planner
 {
 
-struct GridIndex
-{
-  int x = 0;
-  int y = 0;
-  int z = 0;
-
-  bool operator==(const GridIndex & other) const
-  {
-    return x == other.x && y == other.y && z == other.z;
-  }
-};
+using GridIndex = asr_sdm_esdf_map::GridIndex;
+using MapQueryInterface = asr_sdm_esdf_map::MapQueryInterface;
 
 struct PlanResult
 {

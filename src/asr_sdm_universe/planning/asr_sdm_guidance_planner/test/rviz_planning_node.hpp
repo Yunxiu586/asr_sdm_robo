@@ -1,6 +1,7 @@
 #ifndef ASR_SDM_GUIDANCE_PLANNER_NODE_RVIZ_PLANNING_NODE_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_NODE_RVIZ_PLANNING_NODE_HPP_
 
+#include <guidance_planner.hpp>
 #include <voxel_esdf_map.hpp>
 #include <lbfgs_path_optimizer.hpp>
 #include <astar_3d_planner.hpp>
@@ -8,7 +9,6 @@
 
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
-#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -45,10 +45,6 @@ private:
   std::string joinPath(const std::string & directory, const std::string & filename) const;
   void publishOccupiedMapMarker() const;
   void clickedPointCallback(geometry_msgs::msg::PointStamped::ConstSharedPtr msg);
-  void startPointCallback(geometry_msgs::msg::PointStamped::ConstSharedPtr msg);
-  void goalPointCallback(geometry_msgs::msg::PointStamped::ConstSharedPtr msg);
-  void initialPoseCallback(geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr msg);
-  void goalPoseCallback(geometry_msgs::msg::PoseStamped::ConstSharedPtr msg);
 
   void setStart(const Eigen::Vector3d & start);
   void setGoalAndPlan(const Eigen::Vector3d & goal);
@@ -61,8 +57,6 @@ private:
     std::string & status) const;
 
   Eigen::Vector3d pointMsgToEigen(const geometry_msgs::msg::Point & point) const;
-  Eigen::Vector3d poseMsgToEigen(const geometry_msgs::msg::Pose & pose) const;
-
   void publishPath(
     const std::vector<Eigen::Vector3d> & path,
     const rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr & pub) const;
@@ -118,6 +112,7 @@ private:
   Astar3dPlanner astar_planner_;
   SphereCorridorGenerator corridor_generator_;
   LbfgsPathOptimizer optimizer_;
+  GuidancePlanner guidance_planner_;
 
   bool have_start_ = false;
   bool have_goal_ = false;
@@ -128,16 +123,9 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr occupancy_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr esdf_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr clicked_point_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr start_point_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr goal_point_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initial_pose_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pose_sub_;
-
-  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr raw_path_pub_;
-  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr waypoints_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr raw_marker_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr path_marker_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr astar_marker_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr waypoints_marker_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr start_goal_marker_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr corridor_marker_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr occupied_map_pub_;

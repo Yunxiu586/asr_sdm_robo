@@ -183,8 +183,8 @@ bool NonUniformBspline::checkFeasibility(bool show) {
     }
   }
 
-  double ratio = max(max_vel / limit_vel_, sqrt(fabs(max_acc) / limit_acc_));
-
+  // checkFeasibility() only reports whether limits are violated.
+  // The detailed violation ratio is computed by checkRatio() when needed.
   return fea;
 }
 

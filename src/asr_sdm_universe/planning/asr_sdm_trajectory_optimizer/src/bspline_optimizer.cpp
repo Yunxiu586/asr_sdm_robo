@@ -91,6 +91,17 @@ void BsplineOptimizer::setEnvironment(const EDTEnvironment::Ptr& env) {
   this->edt_environment_ = env;
 }
 
+void BsplineOptimizer::setMapQuery(const asr_sdm_esdf_map::MapQueryInterface* map) {
+  map_query_holder_.reset();
+  map_query_ = map;
+}
+
+void BsplineOptimizer::setMapQuery(
+    const std::shared_ptr<const asr_sdm_esdf_map::MapQueryInterface>& map) {
+  map_query_holder_ = map;
+  map_query_ = map_query_holder_.get();
+}
+
 void BsplineOptimizer::setControlPoints(const Eigen::MatrixXd& points) {
   control_points_ = points;
   dim_            = control_points_.cols();
@@ -258,7 +269,26 @@ void BsplineOptimizer::calcDistanceCost(const vector<Eigen::Vector3d>& q, double
   int end_idx = (cost_function_ & ENDPOINT) ? q.size() : q.size() - order_;
 
   for (int i = order_; i < end_idx; i++) {
-    edt_environment_->evaluateEDTWithGrad(q[i], -1.0, dist, dist_grad);
+    bool has_distance = false;
+    dist = std::numeric_limits<double>::infinity();
+    dist_grad = Eigen::Vector3d::Zero();
+
+    if (map_query_ != nullptr) {
+      if (!map_query_->isReady() || !map_query_->isInMap(q[i]) || !map_query_->hasDistanceField()) {
+        continue;
+      }
+      dist = map_query_->distance(q[i]);
+      dist_grad = map_query_->gradient(q[i]);
+      has_distance = std::isfinite(dist);
+    } else if (edt_environment_ != nullptr) {
+      edt_environment_->evaluateEDTWithGrad(q[i], -1.0, dist, dist_grad);
+      has_distance = std::isfinite(dist);
+    }
+
+    if (!has_distance) {
+      continue;
+    }
+
     if (dist_grad.norm() > 1e-4) dist_grad.normalize();
 
     if (dist < dist0_) {

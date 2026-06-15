@@ -21,9 +21,32 @@ pt.z = pos(2);
 pt.intensity = dist;  // real ESDF distance, not normalized
 ```
 
+
+## Package structure
+
+`asr_sdm_guidance_planner` is organized as a C++ planning library plus an RViz test executable.
+The installed public library exposes `GuidancePlanner` through:
+
+```cpp
+#include <guidance_planner.hpp>
+```
+
+The library-level responsibility is only:
+
+```text
+VoxelEsdfMap + start + goal
+  ->  A* guide path
+  ->  sphere corridor
+  ->  L-BFGS optimized guidance waypoints
+```
+
+`RvizPlanningNode`, RViz point selection, topic publishing, and marker visualization are kept under `test/` as test executable source code. Runtime assets follow the usual ROS package layout at package root: `config/`, `launch/`, `rviz/`, and `maps/`. The launch file still starts the test executable `rviz_astar_lbfgs_planner` so package-level testing remains the same. The RViz config intentionally keeps the modifier-related displays and the second Publish Point tool on `/planning/add_virtual_obstacle`, so the local path modifier test can reuse this RViz layout.
+
+In the full planning stack, `planning_manager` should link against this package and call `GuidancePlanner::plan(...)` directly. `planning_manager` remains the central module that consumes the returned global guidance waypoints and then handles trajectory generation, collision checking, local path modifier / topo replan, and B-spline optimization.
+
 ## Binary map files
 
-Put the two binary files here before building/installing the package:
+Put the two binary files in the test asset directory before building/installing the package:
 
 ```text
 asr_sdm_guidance_planner/maps/occupancy.bin
@@ -75,37 +98,36 @@ Topic mode:
   /esdf_map/esdf_distance
 
 RViz/user selection:
-  /clicked_point
-  /planning/start
-  /planning/goal
-  /initialpose
-  /goal_pose
+  /clicked_point  (first click = start, second click = goal)
 ```
 
 ## Main outputs
 
 ```text
-/planning/astar_path          nav_msgs/msg/Path, raw A* path
-/planning/path                nav_msgs/msg/Path, optimized waypoint polyline
 /planning/waypoints           nav_msgs/msg/Path, optimized waypoints inside the safe corridor
 /planning/safe_corridor       visualization_msgs/msg/MarkerArray, semi-transparent sphere corridor
 /planning/astar_path_marker   visualization_msgs/msg/Marker
-/planning/path_marker         visualization_msgs/msg/Marker
+/planning/waypoints_marker    visualization_msgs/msg/Marker
 /planning/start_goal_marker   visualization_msgs/msg/Marker
 /esdf_map/occupied_map        visualization_msgs/msg/Marker, TRIANGLE_LIST occupied-map mesh
 ```
 
+`/planning/waypoints` and the planning visualization markers are published with
+`reliable + transient_local + keep_last(1)` QoS. This is equivalent to a cached
+latest result: `local_path_modifier_test` can start after a plan has already been
+published and still receive the most recent guidance waypoints.
+
 ## Run
 
 ```bash
-cd ~/ros2_ws
+cd <your_ros2_workspace>
 source /opt/ros/jazzy/setup.bash
 colcon build --packages-up-to asr_sdm_guidance_planner --symlink-install
 source install/setup.bash
-ros2 launch asr_sdm_guidance_planner astar_lbfgs_planner_launch.py
+ros2 launch asr_sdm_guidance_planner astar_lbfgs_planner.launch.py
 ```
 
-In RViz2, use `Publish Point` twice:
+In RViz2, use `Publish Point: Start/Goal` twice:
 
 ```text
 first click  -> start
@@ -125,7 +147,7 @@ visualization.visualization_truncate_height: 3.0
 selection.clicked_point_use_msg_z: true
 selection.default_planning_z: 0.5
 selection.project_start_goal_to_safe: true
-selection.safe_point_search_radius: 1.5
+selection.safe_point_search_radius: 4.0
 corridor.enabled: true
 corridor.safety_margin: 0.10
 corridor.min_radius: 0.10
@@ -156,4 +178,4 @@ visualization.occupied_map_mesh_resolution
 - L-BFGS optimizes the corridor-initialized waypoints and adds a corridor penalty so the published `/planning/waypoints` stay inside the sphere corridor.
 - The `/esdf_map/occupied_map` Marker generation mirrors `SDFMap::publishOccupiedMap()` from `asr_sdm_esdf_map`: `TRIANGLE_LIST`, exposed cube faces only, height-based colors, `ground_height`, and `visualization_truncate_height` cropping.
 - The old internal `computeEsdf()` logic has been removed.
-- If the optimized waypoint path is unsafe or optimization fails, `/planning/path` and `/planning/waypoints` publish the corridor-initialized safe waypoints as fallback when `selection.use_optimized_only_if_safe: true`.
+- If the optimized waypoint path is unsafe or optimization fails, `/planning/waypoints` publishes the corridor-initialized safe waypoints as fallback when `selection.use_optimized_only_if_safe: true`.

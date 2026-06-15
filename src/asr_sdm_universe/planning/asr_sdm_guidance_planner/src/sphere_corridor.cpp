@@ -1,5 +1,7 @@
 #include <sphere_corridor.hpp>
 
+#include <Eigen/Geometry>
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -83,7 +85,7 @@ double SphereCorridorGenerator::overlapVolume(const CorridorSphere & a, const Co
 }
 
 CorridorSphere SphereCorridorGenerator::generateOneSphere(
-  const VoxelEsdfMap & map,
+  const MapQueryInterface & map,
   const Eigen::Vector3d & center) const
 {
   CorridorSphere sphere;
@@ -114,7 +116,7 @@ CorridorSphere SphereCorridorGenerator::generateOneSphere(
 }
 
 CorridorSphere SphereCorridorGenerator::batchSample(
-  const VoxelEsdfMap & map,
+  const MapQueryInterface & map,
   const Eigen::Vector3d & guide_point,
   const CorridorSphere & last_sphere)
 {
@@ -225,7 +227,7 @@ std::vector<Eigen::Vector3d> SphereCorridorGenerator::initializeWaypoints(
 }
 
 SphereCorridorResult SphereCorridorGenerator::generate(
-  const VoxelEsdfMap & map,
+  const MapQueryInterface & map,
   const std::vector<Eigen::Vector3d> & guide_path,
   const Eigen::Vector3d & start,
   const Eigen::Vector3d & goal)
@@ -239,7 +241,7 @@ SphereCorridorResult SphereCorridorGenerator::generate(
     return result;
   }
 
-  if (!map.hasEsdf()) {
+  if (!map.hasDistanceField()) {
     result.message = "ESDF is not ready; cannot generate sphere corridor";
     return result;
   }

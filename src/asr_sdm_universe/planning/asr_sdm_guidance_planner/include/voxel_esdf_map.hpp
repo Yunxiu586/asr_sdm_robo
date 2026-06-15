@@ -21,7 +21,7 @@ struct VoxelMapOptions
   bool clear_before_integrate = true;
 };
 
-class VoxelEsdfMap
+class VoxelEsdfMap final : public MapQueryInterface
 {
 public:
   VoxelEsdfMap() = default;
@@ -32,38 +32,40 @@ public:
   void integrateOccupiedCloud(const pcl::PointCloud<pcl::PointXYZ> & cloud);
   void integrateEsdfCloud(const pcl::PointCloud<pcl::PointXYZI> & cloud);
 
-  bool isReady() const { return initialized_ && has_occupancy_input_ && has_esdf_; }
+  bool isReady() const override { return initialized_ && has_occupancy_input_ && has_esdf_; }
   bool hasOccupancy() const { return initialized_ && has_occupancy_input_; }
   bool hasEsdf() const { return initialized_ && has_esdf_; }
+  bool hasOccupancyLayer() const override { return hasOccupancy(); }
+  bool hasDistanceField() const override { return hasEsdf(); }
 
-  bool isInMap(const Eigen::Vector3d & position) const;
-  bool isInMap(const GridIndex & index) const;
-  bool worldToIndex(const Eigen::Vector3d & position, GridIndex & index) const;
-  Eigen::Vector3d indexToWorld(const GridIndex & index) const;
+  bool isInMap(const Eigen::Vector3d & position) const override;
+  bool isInMap(const GridIndex & index) const override;
+  bool worldToIndex(const Eigen::Vector3d & position, GridIndex & index) const override;
+  Eigen::Vector3d indexToWorld(const GridIndex & index) const override;
 
-  int toAddress(const GridIndex & index) const;
-  bool addressToIndex(int address, GridIndex & index) const;
+  int toAddress(const GridIndex & index) const override;
+  bool addressToIndex(int address, GridIndex & index) const override;
 
-  bool isOccupied(const GridIndex & index) const;
-  bool isOccupied(const Eigen::Vector3d & position) const;
-  bool isFree(const GridIndex & index, double extra_clearance = 0.0) const;
-  bool isFree(const Eigen::Vector3d & position, double extra_clearance = 0.0) const;
-  bool findNearestFree(const GridIndex & seed, int max_radius_voxels, GridIndex & free_index) const;
+  bool isOccupied(const GridIndex & index) const override;
+  bool isOccupied(const Eigen::Vector3d & position) const override;
+  bool isFree(const GridIndex & index, double extra_clearance = 0.0) const override;
+  bool isFree(const Eigen::Vector3d & position, double extra_clearance = 0.0) const override;
+  bool findNearestFree(const GridIndex & seed, int max_radius_voxels, GridIndex & free_index) const override;
 
-  double distance(const GridIndex & index) const;
-  double distance(const Eigen::Vector3d & position) const;
-  Eigen::Vector3d gradient(const Eigen::Vector3d & position) const;
+  double distance(const GridIndex & index) const override;
+  double distance(const Eigen::Vector3d & position) const override;
+  Eigen::Vector3d gradient(const Eigen::Vector3d & position) const override;
 
   bool segmentIsFree(
-    const Eigen::Vector3d & a, const Eigen::Vector3d & b, double step, double extra_clearance) const;
+    const Eigen::Vector3d & a, const Eigen::Vector3d & b, double step, double extra_clearance) const override;
   bool pathIsFree(
-    const std::vector<Eigen::Vector3d> & path, double step, double extra_clearance) const;
+    const std::vector<Eigen::Vector3d> & path, double step, double extra_clearance) const override;
 
   const Eigen::Vector3i & dims() const { return dims_; }
-  const Eigen::Vector3d & origin() const { return options_.origin; }
-  const Eigen::Vector3d & size() const { return options_.size; }
-  double resolution() const { return options_.resolution; }
-  int voxelCount() const { return voxel_count_; }
+  const Eigen::Vector3d & origin() const override { return options_.origin; }
+  const Eigen::Vector3d & size() const override { return options_.size; }
+  double resolution() const override { return options_.resolution; }
+  int voxelCount() const override { return voxel_count_; }
   int occupiedCount() const { return occupied_count_; }
   int inputPointCount() const { return input_point_count_; }
   int esdfInputPointCount() const { return esdf_input_point_count_; }

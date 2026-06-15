@@ -1,0 +1,45 @@
+local_path_modifier_test:
+  ros__parameters:
+    frame_id: "world"
+
+    topics.input_waypoints: "/planning/waypoints"
+    topics.add_virtual_obstacle: "/planning/add_virtual_obstacle"
+    topics.clear_virtual_obstacles: "/planning/clear_virtual_obstacles"
+    topics.virtual_obstacles_marker: "/planning/virtual_obstacles"
+    topics.topo_candidate_paths_marker: "/planning/topo_candidate_paths"
+
+    # RViz Publish Point on /planning/add_virtual_obstacle creates one temporary spherical obstacle.
+    # Clear all obstacles with:
+    # ros2 topic pub --once /planning/clear_virtual_obstacles std_msgs/msg/Empty "{}"
+    obstacle.radius: 0.35
+    obstacle.use_clicked_z: true
+    obstacle.default_z: 0.5
+
+    # Fast-Planner-style topological PRM around only the blocked local segment.
+    topo.collision_clearance: 0.10
+    topo.collision_check_step: 0.05
+    topo.local_window_padding: 1.20
+    topo.detour_margin: 0.35
+    topo.max_connection_length: 8.0
+    topo.waypoint_spacing: 0.20
+    topo.max_sample_num: 160
+    topo.random_seed: 7
+    topo.shortcut_iterations: 4
+    topo.block_extend_segments: 2
+    topo.deterministic_sampling: true
+
+    # Parameters corresponding to Fast-Planner TopologyPRM stages:
+    # raw path search -> strict topology-equivalence pruning -> selectShortPaths.
+    topo.max_raw_paths: 32
+    topo.reserve_num: 6
+    topo.ratio_to_short: 1.45
+    topo.topo_equiv_sample_num: 48
+    topo.topo_equiv_triangle_step: 0.25
+    topo.smoothness_weight: 0.20
+    topo.clearance_weight: 0.08
+    topo.use_guard_connector_graph: true
+    topo.allow_dense_graph_fallback: true
+    # Keep false to match Fast-Planner TopologyPRM graph construction more closely.
+    topo.allow_direct_start_goal_edge: false
+    # Fast-Planner sameTopoPath uses pairwise line visibility; triangle ribbon check is optional.
+    topo.use_triangle_topo_check: false
