@@ -8,6 +8,7 @@
 #include <cv_bridge/cv_bridge.hpp>
 
 #include "feature_tracker.h"
+#include "imu_preintegrate.h"
 
 #define SHOW_UNDISTORTION 0
 
@@ -18,6 +19,7 @@ queue<sensor_msgs::msg::Image::ConstPtr> img_buf;
 rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr pub_img;
 rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub_match;
 rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr pub_restart;
+rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_imu;
 
 FeatureTracker trackerData[NUM_OF_CAM];
 double first_image_time;
@@ -25,6 +27,23 @@ int pub_count = 1;
 bool first_image_flag = true;
 double last_image_time = 0;
 bool init_pub = 0;
+
+void imu_callback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
+{
+    double t = imu_msg->header.stamp.sec +
+               imu_msg->header.stamp.nanosec * 1e-9;
+    Eigen::Vector3d gyro(imu_msg->angular_velocity.x,
+                         imu_msg->angular_velocity.y,
+                         imu_msg->angular_velocity.z);
+    Eigen::Vector3d accel(imu_msg->linear_acceleration.x,
+                          imu_msg->linear_acceleration.y,
+                          imu_msg->linear_acceleration.z);
+    for (int i = 0; i < NUM_OF_CAM; ++i) {
+        trackerData[i].addImuSample(t, gyro, accel);
+        // Keep ~1 second of IMU history for sparse-align priors.
+        trackerData[i].pruneImuBuffer(t - 1.0);
+    }
+}
 
 void img_callback(const sensor_msgs::msg::Image::SharedPtr img_msg)
 {
@@ -84,6 +103,21 @@ void img_callback(const sensor_msgs::msg::Image::SharedPtr img_msg)
     // cv::imshow("img", show_img);
     // cv::waitKey(0);
     TicToc t_r;
+
+    // Build per-frame IMU rotation priors before readImage so that
+    // sparse-align has a warm start between consecutive frames.
+    {
+        double cur_t = img_msg->header.stamp.sec +
+                       img_msg->header.stamp.nanosec * 1e-9;
+        if (last_image_time > 0.0 && USE_SPARSE_ALIGN) {
+            for (int i = 0; i < NUM_OF_CAM; ++i) {
+                Eigen::Matrix3d R_prior = trackerData[i].imu_preint_
+                    .integrateRotation(last_image_time, cur_t);
+                trackerData[i].setImuRotationPrior(R_prior);
+            }
+        }
+    }
+
     for (int i = 0; i < NUM_OF_CAM; i++)
     {
         RCUTILS_LOG_DEBUG("processing camera %d", i);
@@ -235,6 +269,14 @@ int main(int argc, char **argv)
     }
 
     auto sub_img = n->create_subscription<sensor_msgs::msg::Image>(IMAGE_TOPIC, rclcpp::QoS(rclcpp::KeepLast(100)), img_callback);
+
+    if (USE_SPARSE_ALIGN) {
+        sub_imu = n->create_subscription<sensor_msgs::msg::Imu>(
+            IMU_TOPIC, rclcpp::SensorDataQoS(), imu_callback);
+        RCLCPP_INFO(n->get_logger(),
+                    "Sparse image alignment enabled, subscribing to IMU %s",
+                    IMU_TOPIC.c_str());
+    }
 
     pub_img = n->create_publisher<sensor_msgs::msg::PointCloud>("feature", 1000);
     pub_match = n->create_publisher<sensor_msgs::msg::Image>("feature_img",1000);

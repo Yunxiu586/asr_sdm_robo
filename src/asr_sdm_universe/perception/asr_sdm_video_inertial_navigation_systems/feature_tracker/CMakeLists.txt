@@ -30,6 +30,8 @@ add_executable(feature_tracker
     src/feature_tracker_node.cpp
     src/parameters.cpp
     src/feature_tracker.cpp
+    src/imu_preintegrate.cpp
+    src/sparse_img_align.cpp
     )
 
 ament_target_dependencies(feature_tracker rclcpp rcpputils std_msgs sensor_msgs geometry_msgs cv_bridge camera_model image_transport)
