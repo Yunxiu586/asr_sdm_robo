@@ -424,10 +424,10 @@ void PoseGraph::optimize4DoF()
             int max_length = cur_index + 1;
 
             // w^t_i   w^q_i
-            double t_array[max_length][3];
-            Quaterniond q_array[max_length];
-            double euler_array[max_length][3];
-            double sequence_array[max_length];
+            double (*t_array)[3] = new double[max_length][3];
+            Quaterniond* q_array = new Quaterniond[max_length];
+            double (*euler_array)[3] = new double[max_length][3];
+            double* sequence_array = new double[max_length];
 
             ceres::Problem problem;
             ceres::Solver::Options options;
@@ -571,6 +571,11 @@ void PoseGraph::optimize4DoF()
             }
             m_keyframelist.unlock();
             updatePath();
+
+            delete[] t_array;
+            delete[] q_array;
+            delete[] euler_array;
+            delete[] sequence_array;
         }
 
         std::chrono::milliseconds dura(2000);
