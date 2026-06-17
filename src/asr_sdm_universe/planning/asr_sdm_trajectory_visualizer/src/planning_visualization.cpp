@@ -191,7 +191,7 @@ void PlanningVisualization::drawBsplinesPhase1(vector<NonUniformBspline> & bspli
   }
   last_bspline_phase1_num_ = bsplines.size();
 
-  for (int i = 0; i < bsplines.size(); ++i) {
+  for (size_t i = 0; i < bsplines.size(); ++i) {
     drawBspline(
       bsplines[i], size, getColor(double(i) / bsplines.size(), 0.2), false, 2 * size,
       getColor(double(i) / bsplines.size()), i, i);
@@ -208,7 +208,7 @@ void PlanningVisualization::drawBsplinesPhase2(vector<NonUniformBspline> & bspli
   }
   last_bspline_phase2_num_ = bsplines.size();
 
-  for (int i = 0; i < bsplines.size(); ++i) {
+  for (size_t i = 0; i < bsplines.size(); ++i) {
     drawBspline(
       bsplines[i], size, getColor(double(i) / bsplines.size(), 0.3), false, 1.5 * size,
       getColor(double(i) / bsplines.size()), 50 + i, 50 + i);
@@ -294,10 +294,10 @@ void PlanningVisualization::drawTopoPathsPhase2(
   last_topo_path1_num_ = paths.size();
 
   // draw new paths
-  for (int i = 0; i < paths.size(); ++i) {
+  for (size_t i = 0; i < paths.size(); ++i) {
     vector<Eigen::Vector3d> edge_pt1, edge_pt2;
 
-    for (int j = 0; j < paths[i].size() - 1; ++j) {
+    for (size_t j = 0; j + 1 < paths[i].size(); ++j) {
       edge_pt1.push_back(paths[i][j]);
       edge_pt2.push_back(paths[i][j + 1]);
     }
@@ -321,10 +321,10 @@ void PlanningVisualization::drawTopoPathsPhase1(
   last_topo_path2_num_ = paths.size();
 
   // draw new paths
-  for (int i = 0; i < paths.size(); ++i) {
+  for (size_t i = 0; i < paths.size(); ++i) {
     vector<Eigen::Vector3d> edge_pt1, edge_pt2;
 
-    for (int j = 0; j < paths[i].size() - 1; ++j) {
+    for (size_t j = 0; j + 1 < paths[i].size(); ++j) {
       edge_pt1.push_back(paths[i][j]);
       edge_pt2.push_back(paths[i][j + 1]);
     }
@@ -364,7 +364,7 @@ void PlanningVisualization::drawPrediction(
   const double range = 5.6;
 
   vector<Eigen::Vector3d> traj;
-  for (int i = 0; i < pred->size(); i++) {
+  for (size_t i = 0; i < pred->size(); i++) {
     PolynomialPrediction poly = pred->at(i);
     if (!poly.valid()) continue;
 
@@ -399,7 +399,7 @@ void PlanningVisualization::drawYawPath(
 {
   vector<Eigen::Vector3d> pts1, pts2;
 
-  for (int i = 0; i < yaw.size(); ++i) {
+  for (size_t i = 0; i < yaw.size(); ++i) {
     Eigen::Vector3d pc = pos.evaluateDeBoorT(i * dt);
     pc[2] += 0.3;
     Eigen::Vector3d dir(cos(yaw[i]), sin(yaw[i]), 0);
@@ -417,8 +417,9 @@ Eigen::Vector4d PlanningVisualization::getColor(double h, double alpha)
     h = 0.0;
   }
 
-  double lambda;
-  Eigen::Vector4d color1, color2;
+  double lambda = 0.0;
+  Eigen::Vector4d color1 = Eigen::Vector4d(1, 0, 0, 1);
+  Eigen::Vector4d color2 = Eigen::Vector4d(1, 0, 0, 1);
   if (h >= -1e-4 && h < 1.0 / 6) {
     lambda = (h - 0.0) * 6;
     color1 = Eigen::Vector4d(1, 0, 0, 1);

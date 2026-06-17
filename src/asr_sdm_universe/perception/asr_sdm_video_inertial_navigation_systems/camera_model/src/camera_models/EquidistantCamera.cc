@@ -205,28 +205,6 @@ EquidistantCamera::Parameters::writeToYamlFile(const std::string& filename) cons
     fs.release();
 }
 
-EquidistantCamera::Parameters&
-EquidistantCamera::Parameters::operator=(const EquidistantCamera::Parameters& other)
-{
-    if (this != &other)
-    {
-        m_modelType = other.m_modelType;
-        m_cameraName = other.m_cameraName;
-        m_imageWidth = other.m_imageWidth;
-        m_imageHeight = other.m_imageHeight;
-        m_k2 = other.m_k2;
-        m_k3 = other.m_k3;
-        m_k4 = other.m_k4;
-        m_k5 = other.m_k5;
-        m_mu = other.m_mu;
-        m_mv = other.m_mv;
-        m_u0 = other.m_u0;
-        m_v0 = other.m_v0;
-    }
-
-    return *this;
-}
-
 std::ostream&
 operator<< (std::ostream& out, const EquidistantCamera::Parameters& params)
 {
