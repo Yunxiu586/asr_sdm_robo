@@ -1,6 +1,5 @@
-#include <topo_path_modifier.hpp>
-
 #include <Eigen/Geometry>
+#include <asr_sdm_local_path_modifier/topo_path_modifier.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -53,23 +52,19 @@ void TopoPathModifier::setOptions(const TopoModifierOptions & options)
 }
 
 TopoModifierResult TopoPathModifier::modify(
-  const std::vector<Eigen::Vector3d> & input_path,
-  const std::vector<VirtualObstacle> & obstacles)
+  const std::vector<Eigen::Vector3d> & input_path, const std::vector<VirtualObstacle> & obstacles)
 {
   return modify(input_path, makeVirtualObstacleChecker(obstacles));
 }
 
-
 TopoModifierResult TopoPathModifier::modify(
-  const std::vector<Eigen::Vector3d> & input_path,
-  const asr_sdm_esdf_map::MapQueryInterface & map)
+  const std::vector<Eigen::Vector3d> & input_path, const asr_sdm_esdf_map::MapQueryInterface & map)
 {
   return modify(input_path, makeMapCollisionChecker(map));
 }
 
 TopoModifierResult TopoPathModifier::modify(
-  const std::vector<Eigen::Vector3d> & input_path,
-  const CollisionChecker & checker)
+  const std::vector<Eigen::Vector3d> & input_path, const CollisionChecker & checker)
 {
   TopoModifierResult result;
 
@@ -82,15 +77,16 @@ TopoModifierResult TopoPathModifier::modify(
 
   int first_blocked_segment = -1;
   int last_blocked_segment = -1;
-  result.input_in_collision = pathCollides(
-    input_path, checker, &first_blocked_segment, &last_blocked_segment);
+  result.input_in_collision =
+    pathCollides(input_path, checker, &first_blocked_segment, &last_blocked_segment);
 
   if (!result.input_in_collision) {
     result.success = true;
     result.modified = false;
     result.path = densifyPath(input_path);
     result.candidate_paths = {result.path};
-    result.message = "Input path is collision-free. Emitted the original path as one topo candidate.";
+    result.message =
+      "Input path is collision-free. Emitted the original path as one topo candidate.";
     return result;
   }
 
@@ -99,15 +95,15 @@ TopoModifierResult TopoPathModifier::modify(
   std::string topo_message;
   std::vector<std::vector<Eigen::Vector3d>> local_candidate_paths;
   std::vector<Eigen::Vector3d> local_detour = buildTopoDetour(
-    input_path, checker, first_blocked_segment, last_blocked_segment,
-    start_index, end_index, local_candidate_paths, topo_message);
+    input_path, checker, first_blocked_segment, last_blocked_segment, start_index, end_index,
+    local_candidate_paths, topo_message);
 
   if (local_detour.size() < 2U) {
     result.success = false;
     result.modified = false;
     result.path = input_path;
-    result.message = "Input path is in collision, but topology-based local modification failed. " +
-      topo_message;
+    result.message =
+      "Input path is in collision, but topology-based local modification failed. " + topo_message;
     return result;
   }
 
@@ -115,15 +111,16 @@ TopoModifierResult TopoPathModifier::modify(
     local_candidate_paths.push_back(local_detour);
   }
 
-  std::vector<std::vector<Eigen::Vector3d>> full_candidate_paths = buildFullCandidatePaths(
-    input_path, start_index, end_index, local_candidate_paths, checker);
+  std::vector<std::vector<Eigen::Vector3d>> full_candidate_paths =
+    buildFullCandidatePaths(input_path, start_index, end_index, local_candidate_paths, checker);
 
   if (full_candidate_paths.empty()) {
     result.success = false;
     result.modified = false;
     result.path = input_path;
     std::ostringstream oss;
-    oss << "TopologyPRM generated local candidates, but no complete candidate path passed collision check. "
+    oss << "TopologyPRM generated local candidates, but no complete candidate path passed "
+           "collision check. "
         << topo_message;
     result.message = oss.str();
     return result;
@@ -143,28 +140,21 @@ TopoModifierResult TopoPathModifier::modify(
 }
 
 bool TopoPathModifier::pathCollides(
-  const std::vector<Eigen::Vector3d> & path,
-  const std::vector<VirtualObstacle> & obstacles,
-  int * first_segment,
-  int * last_segment) const
+  const std::vector<Eigen::Vector3d> & path, const std::vector<VirtualObstacle> & obstacles,
+  int * first_segment, int * last_segment) const
 {
   return pathCollides(path, makeVirtualObstacleChecker(obstacles), first_segment, last_segment);
 }
 
-
 bool TopoPathModifier::pathCollides(
-  const std::vector<Eigen::Vector3d> & path,
-  const asr_sdm_esdf_map::MapQueryInterface & map,
-  int * first_segment,
-  int * last_segment) const
+  const std::vector<Eigen::Vector3d> & path, const asr_sdm_esdf_map::MapQueryInterface & map,
+  int * first_segment, int * last_segment) const
 {
   return pathCollides(path, makeMapCollisionChecker(map), first_segment, last_segment);
 }
 
 bool TopoPathModifier::pathCollides(
-  const std::vector<Eigen::Vector3d> & path,
-  const CollisionChecker & checker,
-  int * first_segment,
+  const std::vector<Eigen::Vector3d> & path, const CollisionChecker & checker, int * first_segment,
   int * last_segment) const
 {
   bool collision = false;
@@ -201,9 +191,7 @@ bool TopoPathModifier::pathCollides(
 }
 
 std::vector<std::vector<Eigen::Vector3d>> TopoPathModifier::buildFullCandidatePaths(
-  const std::vector<Eigen::Vector3d> & input_path,
-  const int start_index,
-  const int end_index,
+  const std::vector<Eigen::Vector3d> & input_path, const int start_index, const int end_index,
   const std::vector<std::vector<Eigen::Vector3d>> & local_candidate_paths,
   const CollisionChecker & checker) const
 {
@@ -250,9 +238,9 @@ std::vector<std::vector<Eigen::Vector3d>> TopoPathModifier::buildFullCandidatePa
     }
   }
 
-  std::sort(full_candidate_paths.begin(), full_candidate_paths.end(), [&](const auto & a, const auto & b) {
-    return pathLength(a) < pathLength(b);
-  });
+  std::sort(
+    full_candidate_paths.begin(), full_candidate_paths.end(),
+    [&](const auto & a, const auto & b) { return pathLength(a) < pathLength(b); });
 
   return full_candidate_paths;
 }
@@ -267,26 +255,25 @@ CollisionChecker TopoPathModifier::makeVirtualObstacleChecker(
   }
 
   checker.pointInCollision = [this, obstacles](const Eigen::Vector3d & point) {
-      return pointInsideAnyVirtualObstacle(point, obstacles);
-    };
+    return pointInsideAnyVirtualObstacle(point, obstacles);
+  };
   checker.segmentInCollision = [this, obstacles](
-    const Eigen::Vector3d & a, const Eigen::Vector3d & b) {
-      return segmentCollidesWithVirtualObstacles(a, b, obstacles);
-    };
+                                 const Eigen::Vector3d & a, const Eigen::Vector3d & b) {
+    return segmentCollidesWithVirtualObstacles(a, b, obstacles);
+  };
   checker.clearance = [this, obstacles](const Eigen::Vector3d & point) {
-      if (obstacles.empty()) {
-        return std::numeric_limits<double>::infinity();
-      }
-      double min_clearance = std::numeric_limits<double>::infinity();
-      for (const auto & obstacle : obstacles) {
-        const double inflated_radius = obstacle.radius + options_.collision_clearance;
-        min_clearance = std::min(min_clearance, (point - obstacle.center).norm() - inflated_radius);
-      }
-      return min_clearance;
-    };
+    if (obstacles.empty()) {
+      return std::numeric_limits<double>::infinity();
+    }
+    double min_clearance = std::numeric_limits<double>::infinity();
+    for (const auto & obstacle : obstacles) {
+      const double inflated_radius = obstacle.radius + options_.collision_clearance;
+      min_clearance = std::min(min_clearance, (point - obstacle.center).norm() - inflated_radius);
+    }
+    return min_clearance;
+  };
   return checker;
 }
-
 
 CollisionChecker TopoPathModifier::makeMapCollisionChecker(
   const asr_sdm_esdf_map::MapQueryInterface & map) const
@@ -294,25 +281,20 @@ CollisionChecker TopoPathModifier::makeMapCollisionChecker(
   CollisionChecker checker;
 
   checker.pointInCollision = [this, &map](const Eigen::Vector3d & point) {
-      return !map.isFree(point, options_.collision_clearance);
-    };
+    return !map.isFree(point, options_.collision_clearance);
+  };
 
-  checker.segmentInCollision = [this, &map](
-    const Eigen::Vector3d & a, const Eigen::Vector3d & b) {
-      return !map.segmentIsFree(
-        a, b, options_.collision_check_step, options_.collision_clearance);
-    };
+  checker.segmentInCollision = [this, &map](const Eigen::Vector3d & a, const Eigen::Vector3d & b) {
+    return !map.segmentIsFree(a, b, options_.collision_check_step, options_.collision_clearance);
+  };
 
-  checker.clearance = [&map](const Eigen::Vector3d & point) {
-      return map.distance(point);
-    };
+  checker.clearance = [&map](const Eigen::Vector3d & point) { return map.distance(point); };
 
   return checker;
 }
 
 bool TopoPathModifier::pointInCollision(
-  const Eigen::Vector3d & point,
-  const CollisionChecker & checker) const
+  const Eigen::Vector3d & point, const CollisionChecker & checker) const
 {
   if (checker.pointInCollision) {
     return checker.pointInCollision(point);
@@ -322,16 +304,15 @@ bool TopoPathModifier::pointInCollision(
 }
 
 bool TopoPathModifier::lineVisib(
-  const Eigen::Vector3d & a,
-  const Eigen::Vector3d & b,
-  const CollisionChecker & checker) const
+  const Eigen::Vector3d & a, const Eigen::Vector3d & b, const CollisionChecker & checker) const
 {
   if (checker.segmentInCollision) {
     return !checker.segmentInCollision(a, b);
   }
 
   const double length = (b - a).norm();
-  const int steps = std::max(1, static_cast<int>(std::ceil(length / options_.collision_check_step)));
+  const int steps =
+    std::max(1, static_cast<int>(std::ceil(length / options_.collision_check_step)));
   for (int i = 0; i <= steps; ++i) {
     const double ratio = static_cast<double>(i) / static_cast<double>(steps);
     if (pointInCollision(a + ratio * (b - a), checker)) {
@@ -342,16 +323,13 @@ bool TopoPathModifier::lineVisib(
 }
 
 bool TopoPathModifier::segmentCollides(
-  const Eigen::Vector3d & a,
-  const Eigen::Vector3d & b,
-  const CollisionChecker & checker) const
+  const Eigen::Vector3d & a, const Eigen::Vector3d & b, const CollisionChecker & checker) const
 {
   return !lineVisib(a, b, checker);
 }
 
 double TopoPathModifier::pointClearance(
-  const Eigen::Vector3d & point,
-  const CollisionChecker & checker) const
+  const Eigen::Vector3d & point, const CollisionChecker & checker) const
 {
   if (checker.clearance) {
     return checker.clearance(point);
@@ -360,8 +338,7 @@ double TopoPathModifier::pointClearance(
 }
 
 bool TopoPathModifier::pointInsideAnyVirtualObstacle(
-  const Eigen::Vector3d & point,
-  const std::vector<VirtualObstacle> & obstacles) const
+  const Eigen::Vector3d & point, const std::vector<VirtualObstacle> & obstacles) const
 {
   for (const auto & obstacle : obstacles) {
     const double inflated_radius = obstacle.radius + options_.collision_clearance;
@@ -373,8 +350,7 @@ bool TopoPathModifier::pointInsideAnyVirtualObstacle(
 }
 
 bool TopoPathModifier::segmentCollidesWithVirtualObstacles(
-  const Eigen::Vector3d & a,
-  const Eigen::Vector3d & b,
+  const Eigen::Vector3d & a, const Eigen::Vector3d & b,
   const std::vector<VirtualObstacle> & obstacles) const
 {
   for (const auto & obstacle : obstacles) {
@@ -387,9 +363,7 @@ bool TopoPathModifier::segmentCollidesWithVirtualObstacles(
 }
 
 double TopoPathModifier::pointSegmentDistance(
-  const Eigen::Vector3d & point,
-  const Eigen::Vector3d & a,
-  const Eigen::Vector3d & b) const
+  const Eigen::Vector3d & point, const Eigen::Vector3d & a, const Eigen::Vector3d & b) const
 {
   const Eigen::Vector3d ab = b - a;
   const double denom = ab.squaredNorm();
@@ -401,13 +375,9 @@ double TopoPathModifier::pointSegmentDistance(
 }
 
 std::vector<Eigen::Vector3d> TopoPathModifier::buildTopoDetour(
-  const std::vector<Eigen::Vector3d> & input_path,
-  const CollisionChecker & checker,
-  const int first_blocked_segment,
-  const int last_blocked_segment,
-  int & start_index,
-  int & end_index,
-  std::vector<std::vector<Eigen::Vector3d>> & candidate_paths,
+  const std::vector<Eigen::Vector3d> & input_path, const CollisionChecker & checker,
+  const int first_blocked_segment, const int last_blocked_segment, int & start_index,
+  int & end_index, std::vector<std::vector<Eigen::Vector3d>> & candidate_paths,
   std::string & message)
 {
   start_index = std::max(0, first_blocked_segment - options_.block_extend_segments);
@@ -415,12 +385,12 @@ std::vector<Eigen::Vector3d> TopoPathModifier::buildTopoDetour(
     static_cast<int>(input_path.size()) - 1,
     last_blocked_segment + 1 + options_.block_extend_segments);
 
-  while (start_index > 0 && pointInCollision(input_path[static_cast<std::size_t>(start_index)], checker)) {
+  while (start_index > 0 &&
+         pointInCollision(input_path[static_cast<std::size_t>(start_index)], checker)) {
     --start_index;
   }
   while (end_index + 1 < static_cast<int>(input_path.size()) &&
-         pointInCollision(input_path[static_cast<std::size_t>(end_index)], checker))
-  {
+         pointInCollision(input_path[static_cast<std::size_t>(end_index)], checker)) {
     ++end_index;
   }
 
@@ -447,7 +417,8 @@ std::vector<Eigen::Vector3d> TopoPathModifier::buildTopoDetour(
 
   std::vector<CollisionRegionHint> local_hints;
   for (const auto & hint : checker.region_hints) {
-    const double influence = hint.radius + options_.collision_clearance + options_.local_window_padding;
+    const double influence =
+      hint.radius + options_.collision_clearance + options_.local_window_padding;
     if (pointSegmentDistance(hint.center, start, goal) <= influence) {
       local_hints.push_back(hint);
     }
@@ -459,21 +430,23 @@ std::vector<Eigen::Vector3d> TopoPathModifier::buildTopoDetour(
     const Eigen::Vector3d a = input_path[static_cast<std::size_t>(seg)];
     const Eigen::Vector3d b = input_path[static_cast<std::size_t>(seg + 1)];
     const double length = (b - a).norm();
-    const int steps = std::max(1, static_cast<int>(std::ceil(length / options_.collision_check_step)));
+    const int steps =
+      std::max(1, static_cast<int>(std::ceil(length / options_.collision_check_step)));
     for (int i = 0; i <= steps; ++i) {
       const double ratio = static_cast<double>(i) / static_cast<double>(steps);
       const Eigen::Vector3d p = a + ratio * (b - a);
       if (pointInCollision(p, checker)) {
-        local_hints.push_back(CollisionRegionHint{p, std::max(options_.detour_margin, options_.collision_clearance)});
+        local_hints.push_back(
+          CollisionRegionHint{p, std::max(options_.detour_margin, options_.collision_clearance)});
         break;
       }
     }
   }
 
   if (local_hints.empty()) {
-    const Eigen::Vector3d mid = 0.5 * (
-      input_path[static_cast<std::size_t>(first_blocked_segment)] +
-      input_path[static_cast<std::size_t>(last_blocked_segment + 1)]);
+    const Eigen::Vector3d mid =
+      0.5 * (input_path[static_cast<std::size_t>(first_blocked_segment)] +
+             input_path[static_cast<std::size_t>(last_blocked_segment + 1)]);
     local_hints.push_back(CollisionRegionHint{mid, options_.local_window_padding});
   }
 
@@ -494,12 +467,18 @@ std::vector<Eigen::Vector3d> TopoPathModifier::buildTopoDetour(
   }
 
   const std::vector<Eigen::Vector3d> detour_dirs = {
-    axis1, -axis1, axis2, -axis2,
-    safeNormalized(axis1 + axis2, axis1), safeNormalized(axis1 - axis2, axis1),
-    safeNormalized(-axis1 + axis2, axis2), safeNormalized(-axis1 - axis2, -axis1)};
+    axis1,
+    -axis1,
+    axis2,
+    -axis2,
+    safeNormalized(axis1 + axis2, axis1),
+    safeNormalized(axis1 - axis2, axis1),
+    safeNormalized(-axis1 + axis2, axis2),
+    safeNormalized(-axis1 - axis2, -axis1)};
 
   for (const auto & hint : local_hints) {
-    const double detour_radius = hint.radius + options_.collision_clearance + options_.detour_margin;
+    const double detour_radius =
+      hint.radius + options_.collision_clearance + options_.detour_margin;
     for (const auto & detour_dir : detour_dirs) {
       addNode(hint.center + detour_radius * detour_dir);
     }
@@ -559,21 +538,16 @@ std::vector<Eigen::Vector3d> TopoPathModifier::buildTopoDetour(
   best_path = densifyPath(best_path);
 
   std::ostringstream oss;
-  oss << "samples=" << sample_pool.size()
-      << ", local_hints=" << local_hints.size()
-      << ", selected_topo_paths=" << candidate_paths.size()
-      << ", start_index=" << start_index
-      << ", end_index=" << end_index
-      << ". " << graph_message;
+  oss << "samples=" << sample_pool.size() << ", local_hints=" << local_hints.size()
+      << ", selected_topo_paths=" << candidate_paths.size() << ", start_index=" << start_index
+      << ", end_index=" << end_index << ". " << graph_message;
   message = oss.str();
   return best_path;
 }
 
 std::vector<Eigen::Vector3d> TopoPathModifier::buildGuardConnectorGraphPath(
-  const std::vector<Eigen::Vector3d> & sample_pool,
-  const CollisionChecker & checker,
-  std::vector<std::vector<Eigen::Vector3d>> & selected_paths,
-  std::string & message) const
+  const std::vector<Eigen::Vector3d> & sample_pool, const CollisionChecker & checker,
+  std::vector<std::vector<Eigen::Vector3d>> & selected_paths, std::string & message) const
 {
   selected_paths.clear();
   if (sample_pool.size() < 2U) {
@@ -615,9 +589,9 @@ std::vector<Eigen::Vector3d> TopoPathModifier::buildGuardConnectorGraphPath(
     }
   }
 
-  if (options_.allow_direct_start_goal_edge && !containsEdge(graph[0], 1) &&
-      lineVisib(graph_nodes[0].pos, graph_nodes[1].pos, checker))
-  {
+  if (
+    options_.allow_direct_start_goal_edge && !containsEdge(graph[0], 1) &&
+    lineVisib(graph_nodes[0].pos, graph_nodes[1].pos, checker)) {
     addUndirectedEdge(0, 1, graph_nodes, graph);
   }
 
@@ -641,13 +615,11 @@ std::vector<Eigen::Vector3d> TopoPathModifier::buildGuardConnectorGraphPath(
 
   auto best_it = std::min_element(
     selected_paths.begin(), selected_paths.end(),
-    [&](const auto & a, const auto & b) {return pathLength(a) < pathLength(b);});
+    [&](const auto & a, const auto & b) { return pathLength(a) < pathLength(b); });
 
   std::ostringstream oss;
-  oss << "guard_connector_graph: nodes=" << graph_nodes.size()
-      << ", raw_paths=" << raw_paths.size()
-      << ", topo_clusters=" << filtered_paths.size()
-      << ", selected=" << selected_paths.size();
+  oss << "guard_connector_graph: nodes=" << graph_nodes.size() << ", raw_paths=" << raw_paths.size()
+      << ", topo_clusters=" << filtered_paths.size() << ", selected=" << selected_paths.size();
   if (best_it != selected_paths.end()) {
     oss << ", best_length=" << pathLength(*best_it)
         << ", best_score=" << pathScore(*best_it, checker);
@@ -658,10 +630,8 @@ std::vector<Eigen::Vector3d> TopoPathModifier::buildGuardConnectorGraphPath(
 }
 
 std::vector<Eigen::Vector3d> TopoPathModifier::buildDenseGraphPath(
-  const std::vector<Eigen::Vector3d> & dense_nodes,
-  const CollisionChecker & checker,
-  std::vector<std::vector<Eigen::Vector3d>> & selected_paths,
-  std::string & message) const
+  const std::vector<Eigen::Vector3d> & dense_nodes, const CollisionChecker & checker,
+  std::vector<std::vector<Eigen::Vector3d>> & selected_paths, std::string & message) const
 {
   selected_paths.clear();
   if (dense_nodes.size() < 2U) {
@@ -681,15 +651,15 @@ std::vector<Eigen::Vector3d> TopoPathModifier::buildDenseGraphPath(
   std::unordered_set<std::uint64_t> blocked_edges;
 
   const auto addEdgeIfVisible = [&](const int i, const int j) {
-    const double distance = (
-      graph_nodes[static_cast<std::size_t>(i)].pos - graph_nodes[static_cast<std::size_t>(j)].pos).norm();
+    const double distance =
+      (graph_nodes[static_cast<std::size_t>(i)].pos - graph_nodes[static_cast<std::size_t>(j)].pos)
+        .norm();
     if (distance > options_.max_connection_length) {
       return;
     }
     if (!lineVisib(
-        graph_nodes[static_cast<std::size_t>(i)].pos,
-        graph_nodes[static_cast<std::size_t>(j)].pos, checker))
-    {
+          graph_nodes[static_cast<std::size_t>(i)].pos,
+          graph_nodes[static_cast<std::size_t>(j)].pos, checker)) {
       blocked_edges.insert(edgeKey(i, j));
       return;
     }
@@ -713,8 +683,7 @@ std::vector<Eigen::Vector3d> TopoPathModifier::buildDenseGraphPath(
   if (raw_paths.empty()) {
     std::vector<Eigen::Vector3d> shortest = shortestGraphPath(dense_nodes, graph, selected_paths);
     std::ostringstream oss;
-    oss << "dense_graph: nodes=" << graph_nodes.size()
-        << ", blocked_edges=" << blocked_edges.size()
+    oss << "dense_graph: nodes=" << graph_nodes.size() << ", blocked_edges=" << blocked_edges.size()
         << ", dijkstra_path=" << (shortest.size() >= 2U ? 1 : 0);
     message = oss.str();
     return shortcutPath(shortest, checker);
@@ -728,22 +697,20 @@ std::vector<Eigen::Vector3d> TopoPathModifier::buildDenseGraphPath(
   }
   auto best_it = std::min_element(
     selected_paths.begin(), selected_paths.end(),
-    [&](const auto & a, const auto & b) {return pathLength(a) < pathLength(b);});
+    [&](const auto & a, const auto & b) { return pathLength(a) < pathLength(b); });
 
   std::ostringstream oss;
-  oss << "dense_graph: nodes=" << graph_nodes.size()
-      << ", blocked_edges=" << blocked_edges.size()
-      << ", raw_paths=" << raw_paths.size()
-      << ", topo_clusters=" << filtered_paths.size()
+  oss << "dense_graph: nodes=" << graph_nodes.size() << ", blocked_edges=" << blocked_edges.size()
+      << ", raw_paths=" << raw_paths.size() << ", topo_clusters=" << filtered_paths.size()
       << ", selected=" << selected_paths.size();
   message = oss.str();
 
-  return best_it == selected_paths.end() ? std::vector<Eigen::Vector3d>{} : shortcutPath(*best_it, checker);
+  return best_it == selected_paths.end() ? std::vector<Eigen::Vector3d>{}
+                                         : shortcutPath(*best_it, checker);
 }
 
 std::vector<int> TopoPathModifier::findVisibGuard(
-  const Eigen::Vector3d & point,
-  const std::vector<GraphNode> & graph_nodes,
+  const Eigen::Vector3d & point, const std::vector<GraphNode> & graph_nodes,
   const CollisionChecker & checker) const
 {
   std::vector<int> visible_guards;
@@ -767,33 +734,29 @@ std::vector<int> TopoPathModifier::findVisibGuard(
 }
 
 bool TopoPathModifier::needConnection(
-  const int guard_a,
-  const int guard_b,
-  const Eigen::Vector3d & connector,
-  std::vector<GraphNode> & graph_nodes,
-  std::vector<std::vector<GraphEdge>> & graph,
+  const int guard_a, const int guard_b, const Eigen::Vector3d & connector,
+  std::vector<GraphNode> & graph_nodes, std::vector<std::vector<GraphEdge>> & graph,
   const CollisionChecker & checker) const
 {
   if (guard_a == guard_b) {
     return false;
   }
-  if (!lineVisib(graph_nodes[static_cast<std::size_t>(guard_a)].pos, connector, checker) ||
-      !lineVisib(graph_nodes[static_cast<std::size_t>(guard_b)].pos, connector, checker))
-  {
+  if (
+    !lineVisib(graph_nodes[static_cast<std::size_t>(guard_a)].pos, connector, checker) ||
+    !lineVisib(graph_nodes[static_cast<std::size_t>(guard_b)].pos, connector, checker)) {
     return false;
   }
 
   const std::vector<Eigen::Vector3d> new_path = {
-    graph_nodes[static_cast<std::size_t>(guard_a)].pos,
-    connector,
+    graph_nodes[static_cast<std::size_t>(guard_a)].pos, connector,
     graph_nodes[static_cast<std::size_t>(guard_b)].pos};
   const double new_length = pathLength(new_path);
 
   const auto refreshConnectorCosts = [&](const int connector_id) {
     for (auto & edge : graph[static_cast<std::size_t>(connector_id)]) {
-      edge.cost = (
-        graph_nodes[static_cast<std::size_t>(connector_id)].pos -
-        graph_nodes[static_cast<std::size_t>(edge.to)].pos).norm();
+      edge.cost = (graph_nodes[static_cast<std::size_t>(connector_id)].pos -
+                   graph_nodes[static_cast<std::size_t>(edge.to)].pos)
+                    .norm();
       for (auto & back_edge : graph[static_cast<std::size_t>(edge.to)]) {
         if (back_edge.to == connector_id) {
           back_edge.cost = edge.cost;
@@ -835,27 +798,25 @@ bool TopoPathModifier::needConnection(
 
 bool TopoPathModifier::containsEdge(const std::vector<GraphEdge> & edges, const int target) const
 {
-  return std::any_of(edges.begin(), edges.end(), [target](const GraphEdge & edge) {
-    return edge.to == target;
-  });
+  return std::any_of(
+    edges.begin(), edges.end(), [target](const GraphEdge & edge) { return edge.to == target; });
 }
 
 void TopoPathModifier::addUndirectedEdge(
-  const int a,
-  const int b,
-  const std::vector<GraphNode> & graph_nodes,
+  const int a, const int b, const std::vector<GraphNode> & graph_nodes,
   std::vector<std::vector<GraphEdge>> & graph) const
 {
-  if (a == b || a < 0 || b < 0 ||
-      static_cast<std::size_t>(a) >= graph_nodes.size() || static_cast<std::size_t>(b) >= graph_nodes.size())
-  {
+  if (
+    a == b || a < 0 || b < 0 || static_cast<std::size_t>(a) >= graph_nodes.size() ||
+    static_cast<std::size_t>(b) >= graph_nodes.size()) {
     return;
   }
   if (containsEdge(graph[static_cast<std::size_t>(a)], b)) {
     return;
   }
-  const double distance = (
-    graph_nodes[static_cast<std::size_t>(a)].pos - graph_nodes[static_cast<std::size_t>(b)].pos).norm();
+  const double distance =
+    (graph_nodes[static_cast<std::size_t>(a)].pos - graph_nodes[static_cast<std::size_t>(b)].pos)
+      .norm();
   graph[static_cast<std::size_t>(a)].push_back(GraphEdge{b, distance});
   graph[static_cast<std::size_t>(b)].push_back(GraphEdge{a, distance});
 }
@@ -873,8 +834,8 @@ std::vector<std::vector<Eigen::Vector3d>> TopoPathModifier::searchPaths(
   if (!std::isfinite(shortest)) {
     return raw_paths;
   }
-  const double length_limit = shortest * std::max(1.05, options_.ratio_to_short * 2.0) +
-    options_.max_connection_length;
+  const double length_limit =
+    shortest * std::max(1.05, options_.ratio_to_short * 2.0) + options_.max_connection_length;
 
   std::vector<int> path_ids;
   std::vector<bool> visited(graph_nodes.size(), false);
@@ -895,13 +856,9 @@ std::vector<std::vector<Eigen::Vector3d>> TopoPathModifier::searchPaths(
 }
 
 void TopoPathModifier::depthFirstSearch(
-  const int current,
-  const double current_length,
-  const double length_limit,
-  const std::vector<GraphNode> & graph_nodes,
-  const std::vector<std::vector<GraphEdge>> & graph,
-  std::vector<int> & path_ids,
-  std::vector<bool> & visited,
+  const int current, const double current_length, const double length_limit,
+  const std::vector<GraphNode> & graph_nodes, const std::vector<std::vector<GraphEdge>> & graph,
+  std::vector<int> & path_ids, std::vector<bool> & visited,
   std::vector<std::vector<Eigen::Vector3d>> & raw_paths) const
 {
   if (raw_paths.size() >= static_cast<std::size_t>(std::max(1, options_.max_raw_paths) * 4)) {
@@ -932,19 +889,23 @@ void TopoPathModifier::depthFirstSearch(
       continue;
     }
     const double next_length = current_length + edge.cost;
-    const double optimistic = next_length + (graph_nodes[static_cast<std::size_t>(edge.to)].pos - graph_nodes[1].pos).norm();
+    const double optimistic =
+      next_length +
+      (graph_nodes[static_cast<std::size_t>(edge.to)].pos - graph_nodes[1].pos).norm();
     if (optimistic > length_limit) {
       continue;
     }
     visited[static_cast<std::size_t>(edge.to)] = true;
     path_ids.push_back(edge.to);
-    depthFirstSearch(edge.to, next_length, length_limit, graph_nodes, graph, path_ids, visited, raw_paths);
+    depthFirstSearch(
+      edge.to, next_length, length_limit, graph_nodes, graph, path_ids, visited, raw_paths);
     path_ids.pop_back();
     visited[static_cast<std::size_t>(edge.to)] = false;
   }
 }
 
-double TopoPathModifier::shortestGraphDistance(const std::vector<std::vector<GraphEdge>> & graph) const
+double TopoPathModifier::shortestGraphDistance(
+  const std::vector<std::vector<GraphEdge>> & graph) const
 {
   if (graph.size() < 2U) {
     return std::numeric_limits<double>::infinity();
@@ -977,8 +938,7 @@ double TopoPathModifier::shortestGraphDistance(const std::vector<std::vector<Gra
 }
 
 std::vector<Eigen::Vector3d> TopoPathModifier::shortestGraphPath(
-  const std::vector<Eigen::Vector3d> & nodes,
-  const std::vector<std::vector<GraphEdge>> & graph,
+  const std::vector<Eigen::Vector3d> & nodes, const std::vector<std::vector<GraphEdge>> & graph,
   std::vector<std::vector<Eigen::Vector3d>> & candidate_paths) const
 {
   if (nodes.size() < 2U || graph.size() != nodes.size()) {
@@ -1037,8 +997,7 @@ std::vector<Eigen::Vector3d> TopoPathModifier::shortestGraphPath(
 }
 
 std::vector<std::vector<Eigen::Vector3d>> TopoPathModifier::shortcutPaths(
-  const std::vector<std::vector<Eigen::Vector3d>> & paths,
-  const CollisionChecker & checker) const
+  const std::vector<std::vector<Eigen::Vector3d>> & paths, const CollisionChecker & checker) const
 {
   std::vector<std::vector<Eigen::Vector3d>> short_paths;
   short_paths.reserve(paths.size());
@@ -1052,8 +1011,7 @@ std::vector<std::vector<Eigen::Vector3d>> TopoPathModifier::shortcutPaths(
 }
 
 std::vector<std::vector<Eigen::Vector3d>> TopoPathModifier::pruneEquivalent(
-  const std::vector<std::vector<Eigen::Vector3d>> & paths,
-  const CollisionChecker & checker) const
+  const std::vector<std::vector<Eigen::Vector3d>> & paths, const CollisionChecker & checker) const
 {
   std::vector<std::vector<Eigen::Vector3d>> pruned_paths;
   if (paths.empty()) {
@@ -1083,8 +1041,7 @@ std::vector<std::vector<Eigen::Vector3d>> TopoPathModifier::pruneEquivalent(
 }
 
 std::vector<std::vector<Eigen::Vector3d>> TopoPathModifier::selectShortPaths(
-  const std::vector<std::vector<Eigen::Vector3d>> & paths,
-  const CollisionChecker & checker) const
+  const std::vector<std::vector<Eigen::Vector3d>> & paths, const CollisionChecker & checker) const
 {
   (void)checker;
   std::vector<std::vector<Eigen::Vector3d>> short_paths;
@@ -1097,7 +1054,7 @@ std::vector<std::vector<Eigen::Vector3d>> TopoPathModifier::selectShortPaths(
   for (int i = 0; i < options_.reserve_num && !candidates.empty(); ++i) {
     const auto shortest_it = std::min_element(
       candidates.begin(), candidates.end(),
-      [&](const auto & a, const auto & b) {return pathLength(a) < pathLength(b);});
+      [&](const auto & a, const auto & b) { return pathLength(a) < pathLength(b); });
     if (shortest_it == candidates.end()) {
       break;
     }
@@ -1119,8 +1076,7 @@ std::vector<std::vector<Eigen::Vector3d>> TopoPathModifier::selectShortPaths(
 }
 
 bool TopoPathModifier::sameTopoPath(
-  const std::vector<Eigen::Vector3d> & path1,
-  const std::vector<Eigen::Vector3d> & path2,
+  const std::vector<Eigen::Vector3d> & path1, const std::vector<Eigen::Vector3d> & path2,
   const CollisionChecker & checker) const
 {
   if (path1.size() < 2U || path2.size() < 2U) {
@@ -1131,8 +1087,9 @@ bool TopoPathModifier::sameTopoPath(
   const double len2 = pathLength(path2);
   const double max_len = std::max(len1, len2);
   const int point_num = std::max(
-    4, std::max(options_.topo_equiv_sample_num,
-    static_cast<int>(std::ceil(max_len / options_.collision_check_step))));
+    4, std::max(
+         options_.topo_equiv_sample_num,
+         static_cast<int>(std::ceil(max_len / options_.collision_check_step))));
   const std::vector<Eigen::Vector3d> p1 = discretizePath(path1, point_num);
   const std::vector<Eigen::Vector3d> p2 = discretizePath(path2, point_num);
   if (p1.size() != p2.size() || p1.size() < 2U) {
@@ -1150,9 +1107,9 @@ bool TopoPathModifier::sameTopoPath(
   }
 
   for (std::size_t i = 0; i + 1U < p1.size(); ++i) {
-    if (!triangleVisible(p1[i], p1[i + 1U], p2[i], checker) ||
-        !triangleVisible(p1[i + 1U], p2[i + 1U], p2[i], checker))
-    {
+    if (
+      !triangleVisible(p1[i], p1[i + 1U], p2[i], checker) ||
+      !triangleVisible(p1[i + 1U], p2[i + 1U], p2[i], checker)) {
       return false;
     }
   }
@@ -1160,9 +1117,7 @@ bool TopoPathModifier::sameTopoPath(
 }
 
 bool TopoPathModifier::triangleVisible(
-  const Eigen::Vector3d & a,
-  const Eigen::Vector3d & b,
-  const Eigen::Vector3d & c,
+  const Eigen::Vector3d & a, const Eigen::Vector3d & b, const Eigen::Vector3d & c,
   const CollisionChecker & checker) const
 {
   if (!lineVisib(a, b, checker) || !lineVisib(b, c, checker) || !lineVisib(c, a, checker)) {
@@ -1170,7 +1125,8 @@ bool TopoPathModifier::triangleVisible(
   }
 
   const double max_edge = std::max({(a - b).norm(), (b - c).norm(), (c - a).norm()});
-  const int steps = std::max(2, static_cast<int>(std::ceil(max_edge / std::max(0.05, options_.topo_equiv_triangle_step))));
+  const int steps = std::max(
+    2, static_cast<int>(std::ceil(max_edge / std::max(0.05, options_.topo_equiv_triangle_step))));
   for (int i = 0; i <= steps; ++i) {
     for (int j = 0; j <= steps - i; ++j) {
       const double u = static_cast<double>(i) / static_cast<double>(steps);
@@ -1186,8 +1142,7 @@ bool TopoPathModifier::triangleVisible(
 }
 
 double TopoPathModifier::pathScore(
-  const std::vector<Eigen::Vector3d> & path,
-  const CollisionChecker & checker) const
+  const std::vector<Eigen::Vector3d> & path, const CollisionChecker & checker) const
 {
   if (path.size() < 2U) {
     return std::numeric_limits<double>::infinity();
@@ -1205,20 +1160,19 @@ double TopoPathModifier::pathScore(
     smoothness += angle * angle;
   }
 
-  return pathLength(path) +
-    options_.smoothness_weight * smoothness +
-    options_.clearance_weight * clearancePenalty(path, checker);
+  return pathLength(path) + options_.smoothness_weight * smoothness +
+         options_.clearance_weight * clearancePenalty(path, checker);
 }
 
 double TopoPathModifier::clearancePenalty(
-  const std::vector<Eigen::Vector3d> & path,
-  const CollisionChecker & checker) const
+  const std::vector<Eigen::Vector3d> & path, const CollisionChecker & checker) const
 {
   if (path.empty()) {
     return 0.0;
   }
 
-  const std::vector<Eigen::Vector3d> sampled = discretizePath(path, std::max(8, options_.topo_equiv_sample_num / 2));
+  const std::vector<Eigen::Vector3d> sampled =
+    discretizePath(path, std::max(8, options_.topo_equiv_sample_num / 2));
   double penalty = 0.0;
   for (const auto & point : sampled) {
     const double clearance = pointClearance(point, checker);
@@ -1232,15 +1186,15 @@ double TopoPathModifier::clearancePenalty(
 }
 
 double TopoPathModifier::minClearanceOnPath(
-  const std::vector<Eigen::Vector3d> & path,
-  const CollisionChecker & checker) const
+  const std::vector<Eigen::Vector3d> & path, const CollisionChecker & checker) const
 {
   if (path.empty()) {
     return std::numeric_limits<double>::infinity();
   }
 
   double min_clearance = std::numeric_limits<double>::infinity();
-  const std::vector<Eigen::Vector3d> sampled = discretizePath(path, std::max(8, options_.topo_equiv_sample_num / 2));
+  const std::vector<Eigen::Vector3d> sampled =
+    discretizePath(path, std::max(8, options_.topo_equiv_sample_num / 2));
   for (const auto & point : sampled) {
     min_clearance = std::min(min_clearance, pointClearance(point, checker));
   }
@@ -1257,8 +1211,7 @@ double TopoPathModifier::pathLength(const std::vector<Eigen::Vector3d> & path) c
 }
 
 std::vector<Eigen::Vector3d> TopoPathModifier::discretizePath(
-  const std::vector<Eigen::Vector3d> & path,
-  const int point_num) const
+  const std::vector<Eigen::Vector3d> & path, const int point_num) const
 {
   if (path.empty()) {
     return {};
@@ -1281,7 +1234,8 @@ std::vector<Eigen::Vector3d> TopoPathModifier::discretizePath(
   sampled.reserve(static_cast<std::size_t>(point_num));
   std::size_t seg = 0;
   for (int i = 0; i < point_num; ++i) {
-    const double target = total_length * static_cast<double>(i) / static_cast<double>(point_num - 1);
+    const double target =
+      total_length * static_cast<double>(i) / static_cast<double>(point_num - 1);
     while (seg + 1U < cumulative.size() && cumulative[seg + 1U] < target) {
       ++seg;
     }
@@ -1312,7 +1266,8 @@ std::vector<Eigen::Vector3d> TopoPathModifier::discretizePath(
     const Eigen::Vector3d a = path[i];
     const Eigen::Vector3d b = path[i + 1U];
     const double length = (b - a).norm();
-    const int steps = std::max(1, static_cast<int>(std::ceil(length / options_.collision_check_step)));
+    const int steps =
+      std::max(1, static_cast<int>(std::ceil(length / options_.collision_check_step)));
     for (int s = 0; s <= steps; ++s) {
       if (!sampled.empty() && s == 0) {
         continue;
@@ -1325,8 +1280,7 @@ std::vector<Eigen::Vector3d> TopoPathModifier::discretizePath(
 }
 
 std::vector<Eigen::Vector3d> TopoPathModifier::shortcutPath(
-  const std::vector<Eigen::Vector3d> & path,
-  const CollisionChecker & checker) const
+  const std::vector<Eigen::Vector3d> & path, const CollisionChecker & checker) const
 {
   if (path.size() <= 2U) {
     return path;
@@ -1357,7 +1311,8 @@ std::vector<Eigen::Vector3d> TopoPathModifier::shortcutPath(
   return current;
 }
 
-std::vector<Eigen::Vector3d> TopoPathModifier::densifyPath(const std::vector<Eigen::Vector3d> & path) const
+std::vector<Eigen::Vector3d> TopoPathModifier::densifyPath(
+  const std::vector<Eigen::Vector3d> & path) const
 {
   if (path.size() < 2U || options_.waypoint_spacing <= 1.0e-6) {
     return path;
@@ -1378,7 +1333,8 @@ std::vector<Eigen::Vector3d> TopoPathModifier::densifyPath(const std::vector<Eig
   return dense;
 }
 
-void TopoPathModifier::appendUnique(std::vector<Eigen::Vector3d> & path, const Eigen::Vector3d & point) const
+void TopoPathModifier::appendUnique(
+  std::vector<Eigen::Vector3d> & path, const Eigen::Vector3d & point) const
 {
   if (path.empty() || (path.back() - point).norm() > 1.0e-6) {
     path.push_back(point);

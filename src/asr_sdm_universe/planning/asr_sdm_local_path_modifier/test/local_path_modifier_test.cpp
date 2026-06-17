@@ -1,14 +1,13 @@
-#include <topo_path_modifier.hpp>
-
 #include <Eigen/Core>
+#include <asr_sdm_local_path_modifier/topo_path_modifier.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav_msgs/msg/path.hpp>
-#include <rclcpp/rclcpp.hpp>
-#include <std_msgs/msg/empty.hpp>
 #include <std_msgs/msg/color_rgba.hpp>
+#include <std_msgs/msg/empty.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
@@ -46,7 +45,8 @@ public:
 
     clear_obstacles_sub_ = this->create_subscription<std_msgs::msg::Empty>(
       clear_virtual_obstacles_topic_, click_qos,
-      std::bind(&LocalPathModifierTestNode::clearVirtualObstaclesCallback, this, std::placeholders::_1));
+      std::bind(
+        &LocalPathModifierTestNode::clearVirtualObstaclesCallback, this, std::placeholders::_1));
 
     virtual_obstacle_marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>(
       virtual_obstacles_marker_topic_, latched_qos);
@@ -56,7 +56,8 @@ public:
     RCLCPP_INFO(
       this->get_logger(),
       "Local path modifier test started. Subscribed latest guidance waypoints: %s. "
-      "Click RViz Publish Point on %s to add a virtual obstacle. Output selected topo candidates: %s.",
+      "Click RViz Publish Point on %s to add a virtual obstacle. Output selected topo candidates: "
+      "%s.",
       input_waypoints_topic_.c_str(), add_virtual_obstacle_topic_.c_str(),
       topo_candidate_marker_topic_.c_str());
   }
@@ -101,9 +102,12 @@ private:
     frame_id_ = this->get_parameter("frame_id").as_string();
     input_waypoints_topic_ = this->get_parameter("topics.input_waypoints").as_string();
     add_virtual_obstacle_topic_ = this->get_parameter("topics.add_virtual_obstacle").as_string();
-    clear_virtual_obstacles_topic_ = this->get_parameter("topics.clear_virtual_obstacles").as_string();
-    virtual_obstacles_marker_topic_ = this->get_parameter("topics.virtual_obstacles_marker").as_string();
-    topo_candidate_marker_topic_ = this->get_parameter("topics.topo_candidate_paths_marker").as_string();
+    clear_virtual_obstacles_topic_ =
+      this->get_parameter("topics.clear_virtual_obstacles").as_string();
+    virtual_obstacles_marker_topic_ =
+      this->get_parameter("topics.virtual_obstacles_marker").as_string();
+    topo_candidate_marker_topic_ =
+      this->get_parameter("topics.topo_candidate_paths_marker").as_string();
 
     obstacle_radius_ = this->get_parameter("obstacle.radius").as_double();
     obstacle_use_clicked_z_ = this->get_parameter("obstacle.use_clicked_z").as_bool();
@@ -112,27 +116,41 @@ private:
     TopoModifierOptions topo_options;
     topo_options.obstacle_radius = obstacle_radius_;
     topo_options.collision_clearance = this->get_parameter("topo.collision_clearance").as_double();
-    topo_options.collision_check_step = this->get_parameter("topo.collision_check_step").as_double();
-    topo_options.local_window_padding = this->get_parameter("topo.local_window_padding").as_double();
+    topo_options.collision_check_step =
+      this->get_parameter("topo.collision_check_step").as_double();
+    topo_options.local_window_padding =
+      this->get_parameter("topo.local_window_padding").as_double();
     topo_options.detour_margin = this->get_parameter("topo.detour_margin").as_double();
-    topo_options.max_connection_length = this->get_parameter("topo.max_connection_length").as_double();
+    topo_options.max_connection_length =
+      this->get_parameter("topo.max_connection_length").as_double();
     topo_options.waypoint_spacing = this->get_parameter("topo.waypoint_spacing").as_double();
-    topo_options.max_sample_num = static_cast<int>(this->get_parameter("topo.max_sample_num").as_int());
+    topo_options.max_sample_num =
+      static_cast<int>(this->get_parameter("topo.max_sample_num").as_int());
     topo_options.random_seed = static_cast<int>(this->get_parameter("topo.random_seed").as_int());
-    topo_options.shortcut_iterations = static_cast<int>(this->get_parameter("topo.shortcut_iterations").as_int());
-    topo_options.block_extend_segments = static_cast<int>(this->get_parameter("topo.block_extend_segments").as_int());
-    topo_options.deterministic_sampling = this->get_parameter("topo.deterministic_sampling").as_bool();
-    topo_options.max_raw_paths = static_cast<int>(this->get_parameter("topo.max_raw_paths").as_int());
+    topo_options.shortcut_iterations =
+      static_cast<int>(this->get_parameter("topo.shortcut_iterations").as_int());
+    topo_options.block_extend_segments =
+      static_cast<int>(this->get_parameter("topo.block_extend_segments").as_int());
+    topo_options.deterministic_sampling =
+      this->get_parameter("topo.deterministic_sampling").as_bool();
+    topo_options.max_raw_paths =
+      static_cast<int>(this->get_parameter("topo.max_raw_paths").as_int());
     topo_options.reserve_num = static_cast<int>(this->get_parameter("topo.reserve_num").as_int());
     topo_options.ratio_to_short = this->get_parameter("topo.ratio_to_short").as_double();
-    topo_options.topo_equiv_sample_num = static_cast<int>(this->get_parameter("topo.topo_equiv_sample_num").as_int());
-    topo_options.topo_equiv_triangle_step = this->get_parameter("topo.topo_equiv_triangle_step").as_double();
+    topo_options.topo_equiv_sample_num =
+      static_cast<int>(this->get_parameter("topo.topo_equiv_sample_num").as_int());
+    topo_options.topo_equiv_triangle_step =
+      this->get_parameter("topo.topo_equiv_triangle_step").as_double();
     topo_options.smoothness_weight = this->get_parameter("topo.smoothness_weight").as_double();
     topo_options.clearance_weight = this->get_parameter("topo.clearance_weight").as_double();
-    topo_options.use_guard_connector_graph = this->get_parameter("topo.use_guard_connector_graph").as_bool();
-    topo_options.allow_dense_graph_fallback = this->get_parameter("topo.allow_dense_graph_fallback").as_bool();
-    topo_options.allow_direct_start_goal_edge = this->get_parameter("topo.allow_direct_start_goal_edge").as_bool();
-    topo_options.use_triangle_topo_check = this->get_parameter("topo.use_triangle_topo_check").as_bool();
+    topo_options.use_guard_connector_graph =
+      this->get_parameter("topo.use_guard_connector_graph").as_bool();
+    topo_options.allow_dense_graph_fallback =
+      this->get_parameter("topo.allow_dense_graph_fallback").as_bool();
+    topo_options.allow_direct_start_goal_edge =
+      this->get_parameter("topo.allow_direct_start_goal_edge").as_bool();
+    topo_options.use_triangle_topo_check =
+      this->get_parameter("topo.use_triangle_topo_check").as_bool();
     modifier_.setOptions(topo_options);
   }
 
@@ -145,20 +163,20 @@ private:
     }
 
     for (const auto & pose : msg->poses) {
-      latest_waypoints_.push_back(Eigen::Vector3d(
-        pose.pose.position.x,
-        pose.pose.position.y,
-        pose.pose.position.z));
+      latest_waypoints_.push_back(
+        Eigen::Vector3d(pose.pose.position.x, pose.pose.position.y, pose.pose.position.z));
     }
 
     have_waypoints_ = latest_waypoints_.size() >= 2U;
     if (!have_waypoints_) {
-      RCLCPP_WARN(this->get_logger(), "Received /planning/waypoints, but it has fewer than 2 poses.");
+      RCLCPP_WARN(
+        this->get_logger(), "Received /planning/waypoints, but it has fewer than 2 poses.");
       return;
     }
 
     RCLCPP_INFO(
-      this->get_logger(), "Received latest guidance waypoints: %zu points. Rechecking virtual obstacles.",
+      this->get_logger(),
+      "Received latest guidance waypoints: %zu points. Rechecking virtual obstacles.",
       latest_waypoints_.size());
     recomputeAndPublish();
   }
@@ -175,7 +193,8 @@ private:
 
     RCLCPP_INFO(
       this->get_logger(), "Added virtual obstacle #%zu at [%.3f, %.3f, %.3f], radius=%.3f.",
-      virtual_obstacles_.size(), obstacle.center.x(), obstacle.center.y(), obstacle.center.z(), obstacle.radius);
+      virtual_obstacles_.size(), obstacle.center.x(), obstacle.center.y(), obstacle.center.z(),
+      obstacle.radius);
 
     publishVirtualObstaclesMarker();
     recomputeAndPublish();
@@ -245,7 +264,8 @@ private:
     virtual_obstacle_marker_pub_->publish(marker);
   }
 
-  void publishTopoCandidateMarkers(const std::vector<std::vector<Eigen::Vector3d>> & candidate_paths) const
+  void publishTopoCandidateMarkers(
+    const std::vector<std::vector<Eigen::Vector3d>> & candidate_paths) const
   {
     visualization_msgs::msg::MarkerArray array;
     const auto stamp = this->now();
