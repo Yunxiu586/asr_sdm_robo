@@ -67,7 +67,7 @@ std::vector<Eigen::Vector3d> LbfgsPathOptimizer::selectControlPoints(
 
 OptimizerResult LbfgsPathOptimizer::optimize(
   const std::vector<Eigen::Vector3d> & raw_path,
-  const VoxelEsdfMap & map,
+  const MapQueryInterface & map,
   const std::vector<CorridorSphere> * corridor) const
 {
   OptimizerResult result;
@@ -88,7 +88,7 @@ OptimizerResult LbfgsPathOptimizer::optimize(
     return result;
   }
 
-  if (!map.hasEsdf()) {
+  if (!map.hasDistanceField()) {
     result.success = false;
     result.path = raw_path;
     result.path_safe = map.pathIsFree(raw_path, options_.validity_check_step, options_.extra_clearance);

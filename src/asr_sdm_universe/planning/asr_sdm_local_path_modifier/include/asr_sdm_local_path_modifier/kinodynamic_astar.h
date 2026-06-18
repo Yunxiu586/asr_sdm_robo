@@ -1,7 +1,7 @@
 #ifndef _KINODYNAMIC_ASTAR_H
 #define _KINODYNAMIC_ASTAR_H
 
-// #include <asr_sdm_local_path_modifier/matrix_hash.h>
+// #include <path_searching/matrix_hash.h>
 #include <rclcpp/rclcpp.hpp>
 #include <Eigen/Eigen>
 #include <boost/functional/hash.hpp>

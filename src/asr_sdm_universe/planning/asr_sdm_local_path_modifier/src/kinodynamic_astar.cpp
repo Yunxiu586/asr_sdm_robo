@@ -21,9 +21,9 @@
 * along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <asr_sdm_local_path_modifier/kinodynamic_astar.h>
+#include <path_searching/kinodynamic_astar.h>
 #include <sstream>
-#include <asr_sdm_esdf_map/esdf_map.hpp>
+#include <asr_sdm_esdf_map/sdf_map.hpp>
 
 using namespace std;
 using namespace Eigen;
@@ -217,7 +217,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
           double dt = tau * double(k) / double(check_num_);
           stateTransit(cur_state, xt, um, dt);
           pos = xt.head(3);
-          if (edt_environment_->esdf_map_->getInflateOccupancy(pos) == 1 )
+          if (edt_environment_->sdf_map_->getInflateOccupancy(pos) == 1 )
           {
             is_occ = true;
             break;
@@ -466,7 +466,7 @@ bool KinodynamicAstar::computeShotTraj(Eigen::VectorXd state1, Eigen::VectorXd s
     // if (edt_environment_->evaluateCoarseEDT(coord, -1.0) <= margin_) {
     //   return false;
     // }
-    if (edt_environment_->esdf_map_->getInflateOccupancy(coord) == 1)
+    if (edt_environment_->sdf_map_->getInflateOccupancy(coord) == 1)
     {
       return false;
     }
@@ -559,7 +559,7 @@ void KinodynamicAstar::init()
   /* ---------- map params ---------- */
   this->inv_resolution_ = 1.0 / resolution_;
   inv_time_resolution_ = 1.0 / time_resolution_;
-  edt_environment_->esdf_map_->getRegion(origin_, map_size_3d_);
+  edt_environment_->sdf_map_->getRegion(origin_, map_size_3d_);
 
   cout << "origin_: " << origin_.transpose() << endl;
   cout << "map size: " << map_size_3d_.transpose() << endl;

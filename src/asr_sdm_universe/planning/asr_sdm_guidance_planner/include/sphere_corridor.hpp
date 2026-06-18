@@ -1,7 +1,7 @@
 #ifndef ASR_SDM_GUIDANCE_PLANNER_PLANNER_SPHERE_CORRIDOR_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_PLANNER_SPHERE_CORRIDOR_HPP_
 
-#include <voxel_esdf_map.hpp>
+#include <types.hpp>
 
 #include <Eigen/Core>
 
@@ -63,12 +63,12 @@ public:
   const SphereCorridorOptions & options() const { return options_; }
 
   SphereCorridorResult generate(
-    const VoxelEsdfMap & map,
+    const MapQueryInterface & map,
     const std::vector<Eigen::Vector3d> & guide_path,
     const Eigen::Vector3d & start,
     const Eigen::Vector3d & goal);
 
-  CorridorSphere generateOneSphere(const VoxelEsdfMap & map, const Eigen::Vector3d & center) const;
+  CorridorSphere generateOneSphere(const MapQueryInterface & map, const Eigen::Vector3d & center) const;
   static double sphereVolume(double radius);
   static double overlapVolume(const CorridorSphere & a, const CorridorSphere & b);
 
@@ -77,7 +77,7 @@ private:
   std::mt19937 rng_;
 
   CorridorSphere batchSample(
-    const VoxelEsdfMap & map,
+    const MapQueryInterface & map,
     const Eigen::Vector3d & guide_point,
     const CorridorSphere & last_sphere);
 

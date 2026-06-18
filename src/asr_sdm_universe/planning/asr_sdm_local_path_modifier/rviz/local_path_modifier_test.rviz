@@ -5,7 +5,7 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /bspline_candidate_paths1
-        - /bspline_ctrl_points_marker1
+        - /bspline_ctrl_points1
       Splitter Ratio: 0.5448275804519653
     Tree Height: 480
   - Class: rviz_common/Selection
@@ -137,7 +137,7 @@ Visualization Manager:
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
-      Name: bspline_ctrl_points_marker
+      Name: bspline_ctrl_points
       Namespaces:
         bspline_ctrl_points: true
         bspline_ctrl_polygon: true
@@ -146,7 +146,7 @@ Visualization Manager:
         Durability Policy: Transient Local
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /planning/bspline_ctrl_points_marker
+        Value: /planning/bspline_ctrl_points
       Value: true
     - Class: rviz_default_plugins/Marker
       Enabled: true

@@ -2,7 +2,6 @@
 #define ASR_SDM_GUIDANCE_PLANNER_PLANNER_PLANNER_BASE_HPP_
 
 #include <types.hpp>
-#include <voxel_esdf_map.hpp>
 
 #include <Eigen/Core>
 
@@ -15,7 +14,7 @@ public:
   virtual ~PlannerBase() = default;
 
   virtual PlanResult plan(
-    const VoxelEsdfMap & map,
+    const MapQueryInterface & map,
     const Eigen::Vector3d & start,
     const Eigen::Vector3d & goal) = 0;
 };

@@ -1,7 +1,6 @@
 #ifndef ASR_SDM_GUIDANCE_PLANNER_OPTIMIZER_LBFGS_PATH_OPTIMIZER_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_OPTIMIZER_LBFGS_PATH_OPTIMIZER_HPP_
 
-#include <voxel_esdf_map.hpp>
 #include <sphere_corridor.hpp>
 
 #include <Eigen/Core>
@@ -46,7 +45,7 @@ public:
 
   OptimizerResult optimize(
     const std::vector<Eigen::Vector3d> & raw_path,
-    const VoxelEsdfMap & map,
+    const MapQueryInterface & map,
     const std::vector<CorridorSphere> * corridor = nullptr) const;
 
 private:

@@ -1,13 +1,13 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
+import os
 
 
 def generate_launch_description():
-    rviz_config = get_package_share_directory("asr_sdm_esdf_map") + "/demo.rviz"
-    esdf_map_config = (
-        get_package_share_directory("asr_sdm_esdf_map") + "/config/esdf_map_config.yaml"
-    )
+    pkg_share = get_package_share_directory("asr_sdm_esdf_map")
+    rviz_config = os.path.join(pkg_share, "demo.rviz")
+    esdf_map_config = os.path.join(pkg_share, "config", "esdf_map_config.yaml")
 
     esdf_map_node = Node(
         package="asr_sdm_esdf_map",

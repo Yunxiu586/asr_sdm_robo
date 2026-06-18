@@ -53,7 +53,7 @@ std::vector<GridIndex> Astar3dPlanner::neighborOffsets() const
 }
 
 PlanResult Astar3dPlanner::plan(
-  const VoxelEsdfMap & map,
+  const MapQueryInterface & map,
   const Eigen::Vector3d & start,
   const Eigen::Vector3d & goal)
 {

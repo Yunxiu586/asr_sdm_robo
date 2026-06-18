@@ -233,29 +233,6 @@ CataCamera::Parameters::writeToYamlFile(const std::string& filename) const
     fs.release();
 }
 
-CataCamera::Parameters&
-CataCamera::Parameters::operator=(const CataCamera::Parameters& other)
-{
-    if (this != &other)
-    {
-        m_modelType = other.m_modelType;
-        m_cameraName = other.m_cameraName;
-        m_imageWidth = other.m_imageWidth;
-        m_imageHeight = other.m_imageHeight;
-        m_xi = other.m_xi;
-        m_k1 = other.m_k1;
-        m_k2 = other.m_k2;
-        m_p1 = other.m_p1;
-        m_p2 = other.m_p2;
-        m_gamma1 = other.m_gamma1;
-        m_gamma2 = other.m_gamma2;
-        m_u0 = other.m_u0;
-        m_v0 = other.m_v0;
-    }
-
-    return *this;
-}
-
 std::ostream&
 operator<< (std::ostream& out, const CataCamera::Parameters& params)
 {
