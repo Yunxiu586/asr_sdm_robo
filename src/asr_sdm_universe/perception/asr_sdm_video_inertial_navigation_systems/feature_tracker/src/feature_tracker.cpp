@@ -199,6 +199,9 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
             prev_pyr_, cur_pyr_, cur_pts, ref_bearings,
             R_prev_cur_, Eigen::Vector3d::Zero(), opt);
 
+        // D2.1: stash for the node to publish.
+        last_align_res_ = align_res;
+
         // Stats logging.
         ++n_sparse_frames_;
         if (align_res.success) ++n_sparse_success_;

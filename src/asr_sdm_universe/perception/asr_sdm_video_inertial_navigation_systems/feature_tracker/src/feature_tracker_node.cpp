@@ -9,6 +9,7 @@
 
 #include "feature_tracker.h"
 #include "imu_preintegrate.h"
+#include <asr_sdm_perception_msgs/msg/sparse_rot.hpp>
 
 #define SHOW_UNDISTORTION 0
 
@@ -19,6 +20,7 @@ queue<sensor_msgs::msg::Image::ConstPtr> img_buf;
 rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr pub_img;
 rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub_match;
 rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr pub_restart;
+rclcpp::Publisher<asr_sdm_perception_msgs::msg::SparseRot>::SharedPtr pub_sparse_rot;
 rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_imu;
 
 FeatureTracker trackerData[NUM_OF_CAM];
@@ -205,6 +207,32 @@ void img_callback(const sensor_msgs::msg::Image::SharedPtr img_msg)
         else
             pub_img->publish(*feature_points);
 
+        // D2.1: publish sparse-align rotation result for the SPARSE1 pipeline.
+        // Skips frames where alignment failed or had too few measurements.
+        // Payload: asr_sdm_perception_msgs::SparseRot (row-major rot_mat[9], success, chi2, n_meas, iterations, stamp_sec)
+        if (USE_SPARSE_ALIGN && pub_sparse_rot != nullptr) {
+            for (int i = 0; i < NUM_OF_CAM; ++i) {
+                const auto& res = trackerData[i].last_align_res_;
+                // Gate: success == true AND n_meas >= 30
+                if (!res.success || res.n_meas < 30) continue;
+
+                asr_sdm_perception_msgs::msg::SparseRot msg;
+                msg.header = img_msg->header;
+                msg.header.frame_id = "world";
+                const Eigen::Matrix3d& R = res.R_k_kminus1;
+                for (int r = 0; r < 3; ++r)
+                    for (int c = 0; c < 3; ++c)
+                        msg.rot_mat[r * 3 + c] = R(r, c);
+                msg.success     = res.success;
+                msg.chi2        = static_cast<float>(res.final_chi2);
+                msg.n_meas      = res.n_meas;
+                msg.iterations   = res.iterations;
+                msg.stamp_sec   = img_msg->header.stamp.sec +
+                                  img_msg->header.stamp.nanosec * 1e-9;
+                pub_sparse_rot->publish(msg);
+            }
+        }
+
         if (SHOW_TRACK)
         {
             ptr = cv_bridge::cvtColor(ptr, sensor_msgs::image_encodings::BGR8);
@@ -281,6 +309,7 @@ int main(int argc, char **argv)
     pub_img = n->create_publisher<sensor_msgs::msg::PointCloud>("feature", 1000);
     pub_match = n->create_publisher<sensor_msgs::msg::Image>("feature_img",1000);
     pub_restart = n->create_publisher<std_msgs::msg::Bool>("restart",1000);
+    pub_sparse_rot = n->create_publisher<asr_sdm_perception_msgs::msg::SparseRot>("sparse_rot", 1000);
     /*
     if (SHOW_TRACK)
         cv::namedWindow("vis", cv::WINDOW_NORMAL);

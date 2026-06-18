@@ -58,6 +58,11 @@ class FeatureTracker
     void setImuRotationPrior(const Eigen::Matrix3d& R_k_km1);
     void pruneImuBuffer(double t_min);
 
+    // D2.1: expose last sparse-align result for the node to publish.
+    // Written by readImage() whenever USE_SPARSE_ALIGN && have_imu_prior_.
+    // Node reads trackerData[i].last_align_res_ after readImage returns.
+    vins_sparse::SparseAlignResult last_align_res_;
+
     cv::Mat mask;
     cv::Mat fisheye_mask;
     cv::Mat prev_img, cur_img, forw_img;

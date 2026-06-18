@@ -145,6 +145,7 @@ def _launch_pipelines(context, *args, **kwargs):
             ('/feature_tracker/feature', f'/{ns}/feature'),
             ('/feature_tracker/restart', f'/{ns}/restart'),
             ('/pose_graph/match_points', f'/{ns}/match_points'),
+            ('/feature_tracker/sparse_rot', f'/{ns}/sparse_rot'),  # D2.1
         ]
         ve_remaps = ve_sub_remaps + ve_remaps
         # pose_graph relative publishers
@@ -175,7 +176,7 @@ def _launch_pipelines(context, *args, **kwargs):
                 PushRosNamespace(ns),
                 Node(
                     package='feature_tracker',
-                    executable='feature_tracker',
+                    executable='feature_tracker_node',
                     name='feature_tracker',
                     output='screen',
                     parameters=[base_params],
