@@ -1,40 +1,40 @@
 /**
-* This file is part of Fast-Planner.
-*
-* Copyright 2019 Boyu Zhou, Aerial Robotics Group, Hong Kong University of Science and Technology, <uav.ust.hk>
-* Developed by Boyu Zhou <bzhouai at connect dot ust dot hk>, <uv dot boyuzhou at gmail dot com>
-* for more information see <https://github.com/HKUST-Aerial-Robotics/Fast-Planner>.
-* If you use this code, please cite the respective publications as
-* listed on the above website.
-*
-* Fast-Planner is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Lesser General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* Fast-Planner is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU Lesser General Public License
-* along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * This file is part of Fast-Planner.
+ *
+ * Copyright 2019 Boyu Zhou, Aerial Robotics Group, Hong Kong University of Science and Technology,
+ * <uav.ust.hk> Developed by Boyu Zhou <bzhouai at connect dot ust dot hk>, <uv dot boyuzhou at
+ * gmail dot com> for more information see <https://github.com/HKUST-Aerial-Robotics/Fast-Planner>.
+ * If you use this code, please cite the respective publications as
+ * listed on the above website.
+ *
+ * Fast-Planner is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Fast-Planner is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
+ */
 
+#include "asr_sdm_planning_manager/msg/bspline.hpp"
+#include "bspline/non_uniform_bspline.h"
 
+#include <rclcpp/rclcpp.hpp>
+
+#include "geometry_msgs/msg/point.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+#include "quadrotor_msgs/msg/position_command.hpp"
+#include "std_msgs/msg/empty.hpp"
+#include "visualization_msgs/msg/marker.hpp"
 
 #include <chrono>
 #include <memory>
 #include <thread>
-
-#include "bspline/non_uniform_bspline.h"
-#include "nav_msgs/msg/odometry.hpp"
-#include "asr_sdm_planning_manager/msg/bspline.hpp"
-#include "quadrotor_msgs/msg/position_command.hpp"
-#include "std_msgs/msg/empty.hpp"
-#include "geometry_msgs/msg/point.hpp"
-#include "visualization_msgs/msg/marker.hpp"
-#include <rclcpp/rclcpp.hpp>
 
 std::shared_ptr<rclcpp::Node> g_node;
 
@@ -46,8 +46,8 @@ nav_msgs::msg::Odometry odom;
 quadrotor_msgs::msg::PositionCommand cmd;
 // double pos_gain[3] = {5.7, 5.7, 6.2};
 // double vel_gain[3] = {3.4, 3.4, 4.0};
-double pos_gain[3] = { 5.7, 5.7, 6.2 };
-double vel_gain[3] = { 3.4, 3.4, 4.0 };
+double pos_gain[3] = {5.7, 5.7, 6.2};
+double vel_gain[3] = {3.4, 3.4, 4.0};
 
 using fast_planner::NonUniformBspline;
 
@@ -63,8 +63,9 @@ double time_forward_;
 
 vector<Eigen::Vector3d> traj_cmd_, traj_real_;
 
-void displayTrajWithColor(vector<Eigen::Vector3d> path, double resolution, Eigen::Vector4d color,
-                          int id) {
+void displayTrajWithColor(
+  vector<Eigen::Vector3d> path, double resolution, Eigen::Vector4d color, int id)
+{
   visualization_msgs::msg::Marker mk;
   mk.header.frame_id = "world";
   mk.header.stamp = g_node->now();
@@ -99,8 +100,10 @@ void displayTrajWithColor(vector<Eigen::Vector3d> path, double resolution, Eigen
   traj_pub->publish(mk);
 }
 
-void drawCmd(const Eigen::Vector3d& pos, const Eigen::Vector3d& vec, const int& id,
-             const Eigen::Vector4d& color) {
+void drawCmd(
+  const Eigen::Vector3d & pos, const Eigen::Vector3d & vec, const int & id,
+  const Eigen::Vector4d & color)
+{
   visualization_msgs::msg::Marker mk_state;
   mk_state.header.frame_id = "world";
   mk_state.header.stamp = g_node->now();
@@ -132,7 +135,8 @@ void drawCmd(const Eigen::Vector3d& pos, const Eigen::Vector3d& vec, const int& 
   cmd_vis_pub->publish(mk_state);
 }
 
-void bsplineCallback(const asr_sdm_planning_manager::msg::Bspline::SharedPtr msg) {
+void bsplineCallback(const asr_sdm_planning_manager::msg::Bspline::SharedPtr msg)
+{
   // parse pos traj
 
   Eigen::MatrixXd pos_pts(msg->pos_pts.size(), 3);
@@ -175,7 +179,8 @@ void bsplineCallback(const asr_sdm_planning_manager::msg::Bspline::SharedPtr msg
   receive_traj_ = true;
 }
 
-void replanCallback(const std_msgs::msg::Empty::SharedPtr msg) {
+void replanCallback(const std_msgs::msg::Empty::SharedPtr msg)
+{
   (void)msg;
   /* reset duration */
   const double time_out = 0.01;
@@ -184,24 +189,28 @@ void replanCallback(const std_msgs::msg::Empty::SharedPtr msg) {
   traj_duration_ = min(t_stop, traj_duration_);
 }
 
-void newCallback(const std_msgs::msg::Empty::SharedPtr msg) {
+void newCallback(const std_msgs::msg::Empty::SharedPtr msg)
+{
   (void)msg;
   traj_cmd_.clear();
   traj_real_.clear();
 }
 
-void odomCallbck(const nav_msgs::msg::Odometry::SharedPtr msg) {
+void odomCallbck(const nav_msgs::msg::Odometry::SharedPtr msg)
+{
   if (msg->child_frame_id == "X" || msg->child_frame_id == "O") return;
 
   odom = *msg;
 
   traj_real_.push_back(
-      Eigen::Vector3d(odom.pose.pose.position.x, odom.pose.pose.position.y, odom.pose.pose.position.z));
+    Eigen::Vector3d(
+      odom.pose.pose.position.x, odom.pose.pose.position.y, odom.pose.pose.position.z));
 
   if (traj_real_.size() > 10000) traj_real_.erase(traj_real_.begin(), traj_real_.begin() + 1000);
 }
 
-void visCallback() {
+void visCallback()
+{
   // displayTrajWithColor(traj_real_, 0.03, Eigen::Vector4d(0.925, 0.054, 0.964,
   // 1),
   //                      1);
@@ -209,7 +218,8 @@ void visCallback() {
   displayTrajWithColor(traj_cmd_, 0.05, Eigen::Vector4d(0, 1, 0, 1), 2);
 }
 
-void cmdCallback() {
+void cmdCallback()
+{
   /* no publishing before receive traj_ */
   if (!receive_traj_) return;
 
@@ -288,30 +298,27 @@ void cmdCallback() {
   if (traj_cmd_.size() > 10000) traj_cmd_.erase(traj_cmd_.begin(), traj_cmd_.begin() + 1000);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char ** argv)
+{
   rclcpp::init(argc, argv);
   auto node = std::make_shared<rclcpp::Node>("traj_server");
   g_node = node;
 
   auto bspline_sub = node->create_subscription<asr_sdm_planning_manager::msg::Bspline>(
-      "planning/bspline", 10, bsplineCallback);
-  auto replan_sub = node->create_subscription<std_msgs::msg::Empty>(
-      "planning/replan", 10, replanCallback);
-  auto new_sub = node->create_subscription<std_msgs::msg::Empty>(
-      "planning/new", 10, newCallback);
-  auto odom_sub = node->create_subscription<nav_msgs::msg::Odometry>(
-      "/odom_world", 50, odomCallbck);
+    "planning/bspline", 10, bsplineCallback);
+  auto replan_sub =
+    node->create_subscription<std_msgs::msg::Empty>("planning/replan", 10, replanCallback);
+  auto new_sub = node->create_subscription<std_msgs::msg::Empty>("planning/new", 10, newCallback);
+  auto odom_sub =
+    node->create_subscription<nav_msgs::msg::Odometry>("/odom_world", 50, odomCallbck);
 
   cmd_vis_pub =
-      node->create_publisher<visualization_msgs::msg::Marker>("planning/position_cmd_vis", 10);
-  pos_cmd_pub =
-      node->create_publisher<quadrotor_msgs::msg::PositionCommand>("/position_cmd", 50);
+    node->create_publisher<visualization_msgs::msg::Marker>("planning/position_cmd_vis", 10);
+  pos_cmd_pub = node->create_publisher<quadrotor_msgs::msg::PositionCommand>("/position_cmd", 50);
   traj_pub = node->create_publisher<visualization_msgs::msg::Marker>("planning/travel_traj", 10);
 
-  auto cmd_timer =
-      node->create_wall_timer(std::chrono::duration<double>(0.01), cmdCallback);
-  auto vis_timer =
-      node->create_wall_timer(std::chrono::duration<double>(0.25), visCallback);
+  auto cmd_timer = node->create_wall_timer(std::chrono::duration<double>(0.01), cmdCallback);
+  auto vis_timer = node->create_wall_timer(std::chrono::duration<double>(0.25), visCallback);
 
   /* control parameter */
   cmd.kx[0] = pos_gain[0];

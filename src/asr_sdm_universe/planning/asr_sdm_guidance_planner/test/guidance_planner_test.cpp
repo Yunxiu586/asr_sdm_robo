@@ -1,6 +1,5 @@
-#include <rviz_planning_node.hpp>
-
 #include <rclcpp/rclcpp.hpp>
+#include <rviz_planning_node.hpp>
 
 int main(int argc, char ** argv)
 {

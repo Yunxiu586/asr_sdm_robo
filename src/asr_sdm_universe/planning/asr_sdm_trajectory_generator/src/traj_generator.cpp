@@ -1,41 +1,40 @@
 /**
-* This file is part of Fast-Planner.
-*
-* Copyright 2019 Boyu Zhou, Aerial Robotics Group, Hong Kong University of Science and Technology, <uav.ust.hk>
-* Developed by Boyu Zhou <bzhouai at connect dot ust dot hk>, <uv dot boyuzhou at gmail dot com>
-* for more information see <https://github.com/HKUST-Aerial-Robotics/Fast-Planner>.
-* If you use this code, please cite the respective publications as
-* listed on the above website.
-*
-* Fast-Planner is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Lesser General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* Fast-Planner is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU Lesser General Public License
-* along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * This file is part of Fast-Planner.
+ *
+ * Copyright 2019 Boyu Zhou, Aerial Robotics Group, Hong Kong University of Science and Technology,
+ * <uav.ust.hk> Developed by Boyu Zhou <bzhouai at connect dot ust dot hk>, <uv dot boyuzhou at
+ * gmail dot com> for more information see <https://github.com/HKUST-Aerial-Robotics/Fast-Planner>.
+ * If you use this code, please cite the respective publications as
+ * listed on the above website.
+ *
+ * Fast-Planner is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Fast-Planner is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
+ */
 
+#include <Eigen/Eigen>
+#include <rclcpp/rclcpp.hpp>
 
+#include "geometry_msgs/msg/point.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+#include "std_msgs/msg/empty.hpp"
+#include "visualization_msgs/msg/marker.hpp"
+#include <swarmtal_msgs/msg/drone_onboard_command.hpp>
+
+#include <asr_sdm_trajectory_generator/mini_snap_traj.h>
 
 #include <chrono>
 #include <memory>
 #include <thread>
-
-#include "nav_msgs/msg/odometry.hpp"
-#include "std_msgs/msg/empty.hpp"
-#include "geometry_msgs/msg/point.hpp"
-#include "visualization_msgs/msg/marker.hpp"
-#include <Eigen/Eigen>
-#include <rclcpp/rclcpp.hpp>
-
-#include <swarmtal_msgs/msg/drone_onboard_command.hpp>
-#include <asr_sdm_trajectory_generator/mini_snap_traj.h>
 
 using namespace std;
 
@@ -47,8 +46,9 @@ rclcpp::Publisher<swarmtal_msgs::msg::DroneOnboardCommand>::SharedPtr pos_cmd_pu
 nav_msgs::msg::Odometry odom;
 bool have_odom;
 
-void displayPathWithColor(vector<Eigen::Vector3d> path, double resolution, Eigen::Vector4d color,
-                          int id) {
+void displayPathWithColor(
+  vector<Eigen::Vector3d> path, double resolution, Eigen::Vector4d color, int id)
+{
   visualization_msgs::msg::Marker mk;
   mk.header.frame_id = "world";
   mk.header.stamp = g_node->now();
@@ -83,7 +83,8 @@ void displayPathWithColor(vector<Eigen::Vector3d> path, double resolution, Eigen
   traj_pub->publish(mk);
 }
 
-void drawState(Eigen::Vector3d pos, Eigen::Vector3d vec, int id, Eigen::Vector4d color) {
+void drawState(Eigen::Vector3d pos, Eigen::Vector3d vec, int id, Eigen::Vector4d color)
+{
   visualization_msgs::msg::Marker mk_state;
   mk_state.header.frame_id = "world";
   mk_state.header.stamp = g_node->now();
@@ -110,26 +111,30 @@ void drawState(Eigen::Vector3d pos, Eigen::Vector3d vec, int id, Eigen::Vector4d
   state_pub->publish(mk_state);
 }
 
-void odomCallbck(const nav_msgs::msg::Odometry::SharedPtr msg) {
+void odomCallbck(const nav_msgs::msg::Odometry::SharedPtr msg)
+{
   if (msg->child_frame_id == "X" || msg->child_frame_id == "O") return;
 
   odom = *msg;
   have_odom = true;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char ** argv)
+{
   /* ---------- initialize ---------- */
   rclcpp::init(argc, argv);
   g_node = std::make_shared<rclcpp::Node>("traj_generator");
 
-  auto odom_sub = g_node->create_subscription<nav_msgs::msg::Odometry>(
-      "/uwb_vicon_odom", 50, odomCallbck);
+  auto odom_sub =
+    g_node->create_subscription<nav_msgs::msg::Odometry>("/uwb_vicon_odom", 50, odomCallbck);
 
-  traj_pub = g_node->create_publisher<visualization_msgs::msg::Marker>("/traj_generator/traj_vis", 10);
-  state_pub = g_node->create_publisher<visualization_msgs::msg::Marker>("/traj_generator/cmd_vis", 10);
+  traj_pub =
+    g_node->create_publisher<visualization_msgs::msg::Marker>("/traj_generator/traj_vis", 10);
+  state_pub =
+    g_node->create_publisher<visualization_msgs::msg::Marker>("/traj_generator/cmd_vis", 10);
 
   pos_cmd_pub = g_node->create_publisher<swarmtal_msgs::msg::DroneOnboardCommand>(
-      "/drone_commander/onboard_command", 10);
+    "/drone_commander/onboard_command", 10);
 
   std::this_thread::sleep_for(std::chrono::seconds(1));
 
@@ -147,8 +152,8 @@ int main(int argc, char** argv) {
   //     Eigen::Vector3d(odom.pose.pose.position.x, odom.pose.pose.position.y,
   //     odom.pose.pose.position.z);
 
-  pos.row(0) =
-      Eigen::Vector3d(odom.pose.pose.position.x, odom.pose.pose.position.y, odom.pose.pose.position.z);
+  pos.row(0) = Eigen::Vector3d(
+    odom.pose.pose.position.x, odom.pose.pose.position.y, odom.pose.pose.position.z);
   // pos.row(0) = Eigen::Vector3d(-2, 0, 1);
   pos.row(1) = Eigen::Vector3d(-0.5, 0.5, 1);
   pos.row(2) = Eigen::Vector3d(0, 0, 1);

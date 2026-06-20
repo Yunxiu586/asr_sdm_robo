@@ -1,37 +1,37 @@
 /**
-* This file is part of Fast-Planner.
-*
-* Copyright 2019 Boyu Zhou, Aerial Robotics Group, Hong Kong University of Science and Technology, <uav.ust.hk>
-* Developed by Boyu Zhou <bzhouai at connect dot ust dot hk>, <uv dot boyuzhou at gmail dot com>
-* for more information see <https://github.com/HKUST-Aerial-Robotics/Fast-Planner>.
-* If you use this code, please cite the respective publications as
-* listed on the above website.
-*
-* Fast-Planner is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Lesser General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* Fast-Planner is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU Lesser General Public License
-* along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
-*/
-
-
+ * This file is part of Fast-Planner.
+ *
+ * Copyright 2019 Boyu Zhou, Aerial Robotics Group, Hong Kong University of Science and Technology,
+ * <uav.ust.hk> Developed by Boyu Zhou <bzhouai at connect dot ust dot hk>, <uv dot boyuzhou at
+ * gmail dot com> for more information see <https://github.com/HKUST-Aerial-Robotics/Fast-Planner>.
+ * If you use this code, please cite the respective publications as
+ * listed on the above website.
+ *
+ * Fast-Planner is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Fast-Planner is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef _MINI_SNAP_TRAJ_H
 #define _MINI_SNAP_TRAJ_H
 
 #include <Eigen/Eigen>
+
 #include <vector>
 
 using std::vector;
 
-class PolynomialTraj {
+class PolynomialTraj
+{
 private:
   vector<double> times;        // time of each segment
   vector<vector<double>> cxs;  // coefficient of x of each segment, from n-1 -> 0
@@ -46,21 +46,22 @@ private:
   double length;
 
 public:
-  PolynomialTraj(/* args */) {
-  }
-  ~PolynomialTraj() {
-  }
+  PolynomialTraj(/* args */) {}
+  ~PolynomialTraj() {}
 
-  void reset() {
+  void reset()
+  {
     times.clear(), cxs.clear(), cys.clear(), czs.clear();
     time_sum = 0.0, num_seg = 0;
   }
 
-  void addSegment(vector<double> cx, vector<double> cy, vector<double> cz, double t) {
+  void addSegment(vector<double> cx, vector<double> cy, vector<double> cz, double t)
+  {
     cxs.push_back(cx), cys.push_back(cy), czs.push_back(cz), times.push_back(t);
   }
 
-  void init() {
+  void init()
+  {
     num_seg = times.size();
     time_sum = 0.0;
     for (int i = 0; i < times.size(); ++i) {
@@ -68,7 +69,8 @@ public:
     }
   }
 
-  Eigen::Vector3d evaluate(double t) {
+  Eigen::Vector3d evaluate(double t)
+  {
     /* detetrmine segment num */
     int idx = 0;
     while (times[idx] + 1e-4 < t) {
@@ -89,7 +91,8 @@ public:
     return pt;
   }
 
-  Eigen::Vector3d evaluateVel(double t) {
+  Eigen::Vector3d evaluateVel(double t)
+  {
     /* detetrmine segment num */
     int idx = 0;
     while (times[idx] + 1e-4 < t) {
@@ -109,15 +112,15 @@ public:
     }
     double ts = t;
     Eigen::VectorXd tv(order - 1);
-    for (int i = 0; i < order - 1; ++i)
-      tv(i) = pow(ts, i);
+    for (int i = 0; i < order - 1; ++i) tv(i) = pow(ts, i);
 
     Eigen::Vector3d vel;
     vel(0) = tv.dot(vx), vel(1) = tv.dot(vy), vel(2) = tv.dot(vz);
     return vel;
   }
 
-  Eigen::Vector3d evaluateAcc(double t) {
+  Eigen::Vector3d evaluateAcc(double t)
+  {
     /* detetrmine segment num */
     int idx = 0;
     while (times[idx] + 1e-4 < t) {
@@ -137,8 +140,7 @@ public:
     }
     double ts = t;
     Eigen::VectorXd tv(order - 2);
-    for (int i = 0; i < order - 2; ++i)
-      tv(i) = pow(ts, i);
+    for (int i = 0; i < order - 2; ++i) tv(i) = pow(ts, i);
 
     Eigen::Vector3d acc;
     acc(0) = tv.dot(ax), acc(1) = tv.dot(ay), acc(2) = tv.dot(az);
@@ -146,11 +148,10 @@ public:
   }
 
   /* for evaluating traj, should be called in sequence!!! */
-  double getTimeSum() {
-    return this->time_sum;
-  }
+  double getTimeSum() { return this->time_sum; }
 
-  vector<Eigen::Vector3d> getTraj() {
+  vector<Eigen::Vector3d> getTraj()
+  {
     double eval_t = 0.0;
     traj_vec3d.clear();
     while (eval_t < time_sum) {
@@ -161,7 +162,8 @@ public:
     return traj_vec3d;
   }
 
-  double getLength() {
+  double getLength()
+  {
     length = 0.0;
 
     Eigen::Vector3d p_l = traj_vec3d[0], p_n;
@@ -173,12 +175,14 @@ public:
     return length;
   }
 
-  double getMeanVel() {
+  double getMeanVel()
+  {
     double mean_vel = length / time_sum;
     return mean_vel;
   }
 
-  double getAccCost() {
+  double getAccCost()
+  {
     double cost = 0.0;
     int order = cxs[0].size();
 
@@ -191,7 +195,8 @@ public:
     return cost;
   }
 
-  double getJerk() {
+  double getJerk()
+  {
     double jerk = 0.0;
 
     /* evaluate jerk */
@@ -200,7 +205,8 @@ public:
       /* convert coefficient */
       int order = cxs[s].size();
       for (int j = 0; j < order; ++j) {
-        cxv(j) = cxs[s][order - 1 - j], cyv(j) = cys[s][order - 1 - j], czv(j) = czs[s][order - 1 - j];
+        cxv(j) = cxs[s][order - 1 - j], cyv(j) = cys[s][order - 1 - j],
+        czv(j) = czs[s][order - 1 - j];
       }
       double ts = times[s];
 
@@ -210,7 +216,7 @@ public:
       for (int i = 3; i < order; ++i)
         for (int j = 3; j < order; ++j) {
           mat_jerk(i, j) =
-              i * (i - 1) * (i - 2) * j * (j - 1) * (j - 2) * pow(ts, i + j - 5) / (i + j - 5);
+            i * (i - 1) * (i - 2) * j * (j - 1) * (j - 2) * pow(ts, i + j - 5) / (i + j - 5);
         }
 
       jerk += (cxv.transpose() * mat_jerk * cxv)(0, 0);
@@ -221,7 +227,8 @@ public:
     return jerk;
   }
 
-  void getMeanAndMaxVel(double& mean_v, double& max_v) {
+  void getMeanAndMaxVel(double & mean_v, double & max_v)
+  {
     int num = 0;
     mean_v = 0.0, max_v = -1.0;
     for (int s = 0; s < times.size(); ++s) {
@@ -239,8 +246,7 @@ public:
       double eval_t = 0.0;
       while (eval_t < ts) {
         Eigen::VectorXd tv(order - 1);
-        for (int i = 0; i < order - 1; ++i)
-          tv(i) = pow(ts, i);
+        for (int i = 0; i < order - 1; ++i) tv(i) = pow(ts, i);
         Eigen::Vector3d vel;
         vel(0) = tv.dot(vx), vel(1) = tv.dot(vy), vel(2) = tv.dot(vz);
         double vn = vel.norm();
@@ -255,7 +261,8 @@ public:
     mean_v = mean_v / double(num);
   }
 
-  void getMeanAndMaxAcc(double& mean_a, double& max_a) {
+  void getMeanAndMaxAcc(double & mean_a, double & max_a)
+  {
     int num = 0;
     mean_a = 0.0, max_a = -1.0;
     for (int s = 0; s < times.size(); ++s) {
@@ -273,8 +280,7 @@ public:
       double eval_t = 0.0;
       while (eval_t < ts) {
         Eigen::VectorXd tv(order - 2);
-        for (int i = 0; i < order - 2; ++i)
-          tv(i) = pow(ts, i);
+        for (int i = 0; i < order - 2; ++i) tv(i) = pow(ts, i);
         Eigen::Vector3d acc;
         acc(0) = tv.dot(ax), acc(1) = tv.dot(ay), acc(2) = tv.dot(az);
         double an = acc.norm();
@@ -292,12 +298,13 @@ public:
 
 // input : position of waypoints, start/end vel and acc, segment time
 // Pos: Nx3
-PolynomialTraj minSnapTraj(const Eigen::MatrixXd& Pos, const Eigen::Vector3d& start_vel,
-                           const Eigen::Vector3d& end_vel, const Eigen::Vector3d& start_acc,
-                           const Eigen::Vector3d& end_acc, const Eigen::VectorXd& Time);
+PolynomialTraj minSnapTraj(
+  const Eigen::MatrixXd & Pos, const Eigen::Vector3d & start_vel, const Eigen::Vector3d & end_vel,
+  const Eigen::Vector3d & start_acc, const Eigen::Vector3d & end_acc, const Eigen::VectorXd & Time);
 
-PolynomialTraj fastLine4deg(Eigen::Vector3d start, Eigen::Vector3d end, double max_vel, double max_acc,
-                            double max_jerk);
-PolynomialTraj fastLine3deg(Eigen::Vector3d start, Eigen::Vector3d end, double max_vel, double max_acc);
+PolynomialTraj fastLine4deg(
+  Eigen::Vector3d start, Eigen::Vector3d end, double max_vel, double max_acc, double max_jerk);
+PolynomialTraj fastLine3deg(
+  Eigen::Vector3d start, Eigen::Vector3d end, double max_vel, double max_acc);
 
 #endif

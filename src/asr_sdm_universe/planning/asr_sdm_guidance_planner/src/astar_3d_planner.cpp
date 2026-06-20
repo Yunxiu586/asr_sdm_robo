@@ -22,8 +22,7 @@ struct QueueNode
 constexpr double kInf = std::numeric_limits<double>::infinity();
 }  // namespace
 
-Astar3dPlanner::Astar3dPlanner(const Astar3dOptions & options)
-: options_(options)
+Astar3dPlanner::Astar3dPlanner(const Astar3dOptions & options) : options_(options)
 {
 }
 
@@ -53,9 +52,7 @@ std::vector<GridIndex> Astar3dPlanner::neighborOffsets() const
 }
 
 PlanResult Astar3dPlanner::plan(
-  const MapQueryInterface & map,
-  const Eigen::Vector3d & start,
-  const Eigen::Vector3d & goal)
+  const MapQueryInterface & map, const Eigen::Vector3d & start, const Eigen::Vector3d & goal)
 {
   PlanResult result;
 
@@ -142,8 +139,10 @@ PlanResult Astar3dPlanner::plan(
         continue;
       }
 
-      const double step_cost = map.resolution() *
-        std::sqrt(static_cast<double>(offset.x * offset.x + offset.y * offset.y + offset.z * offset.z));
+      const double step_cost =
+        map.resolution() *
+        std::sqrt(
+          static_cast<double>(offset.x * offset.x + offset.y * offset.y + offset.z * offset.z));
       const double tentative_g = g_score[current_addr] + step_cost;
 
       if (tentative_g + 1.0e-12 < g_score[next_addr]) {

@@ -1,6 +1,5 @@
-#include <sphere_corridor.hpp>
-
 #include <Eigen/Geometry>
+#include <sphere_corridor.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -25,14 +24,12 @@ Eigen::Vector3d normalizedOr(const Eigen::Vector3d & v, const Eigen::Vector3d & 
 }
 
 void buildOrthonormalBasis(
-  const Eigen::Vector3d & axis,
-  Eigen::Vector3d & e1,
-  Eigen::Vector3d & e2,
-  Eigen::Vector3d & e3)
+  const Eigen::Vector3d & axis, Eigen::Vector3d & e1, Eigen::Vector3d & e2, Eigen::Vector3d & e3)
 {
   e1 = normalizedOr(axis, Eigen::Vector3d::UnitX());
-  Eigen::Vector3d helper = std::abs(e1.dot(Eigen::Vector3d::UnitZ())) < 0.9 ?
-    Eigen::Vector3d::UnitZ() : Eigen::Vector3d::UnitY();
+  Eigen::Vector3d helper = std::abs(e1.dot(Eigen::Vector3d::UnitZ())) < 0.9
+                             ? Eigen::Vector3d::UnitZ()
+                             : Eigen::Vector3d::UnitY();
   e2 = e1.cross(helper);
   if (e2.norm() < 1.0e-9) {
     helper = Eigen::Vector3d::UnitY();
@@ -80,13 +77,11 @@ double SphereCorridorGenerator::overlapVolume(const CorridorSphere & a, const Co
 
   const double sum = r1 + r2;
   const double diff = r1 - r2;
-  return kPi * (sum - d) * (sum - d) *
-         (d * d + 2.0 * d * sum - 3.0 * diff * diff) / (12.0 * d);
+  return kPi * (sum - d) * (sum - d) * (d * d + 2.0 * d * sum - 3.0 * diff * diff) / (12.0 * d);
 }
 
 CorridorSphere SphereCorridorGenerator::generateOneSphere(
-  const MapQueryInterface & map,
-  const Eigen::Vector3d & center) const
+  const MapQueryInterface & map, const Eigen::Vector3d & center) const
 {
   CorridorSphere sphere;
   sphere.center = center;
@@ -102,7 +97,8 @@ CorridorSphere SphereCorridorGenerator::generateOneSphere(
 
   const double clearance = std::max(0.0, options_.drone_radius + options_.safety_margin);
   sphere.raw_distance = raw_distance;
-  sphere.radius = std::min(std::max(0.0, raw_distance - clearance), std::max(options_.min_radius, options_.max_radius));
+  sphere.radius = std::min(
+    std::max(0.0, raw_distance - clearance), std::max(options_.min_radius, options_.max_radius));
 
   const Eigen::Vector3d grad = map.gradient(center);
   if (grad.norm() > 1.0e-6) {
@@ -116,8 +112,7 @@ CorridorSphere SphereCorridorGenerator::generateOneSphere(
 }
 
 CorridorSphere SphereCorridorGenerator::batchSample(
-  const MapQueryInterface & map,
-  const Eigen::Vector3d & guide_point,
+  const MapQueryInterface & map, const Eigen::Vector3d & guide_point,
   const CorridorSphere & last_sphere)
 {
   CorridorSphere best;
@@ -125,14 +120,15 @@ CorridorSphere SphereCorridorGenerator::batchSample(
 
   const double dist_to_last = (last_sphere.center - guide_point).norm();
   const double sigma_axis = std::max(map.resolution(), options_.sample_axis_scale * dist_to_last);
-  const double sigma_lateral = std::max(map.resolution(), options_.sample_lateral_scale * sigma_axis);
+  const double sigma_lateral =
+    std::max(map.resolution(), options_.sample_lateral_scale * sigma_axis);
 
   Eigen::Vector3d e1, e2, e3;
   buildOrthonormalBasis(last_sphere.center - guide_point, e1, e2, e3);
 
   if (!options_.deterministic_sampling) {
-    const auto seed = static_cast<uint32_t>(
-      std::chrono::steady_clock::now().time_since_epoch().count());
+    const auto seed =
+      static_cast<uint32_t>(std::chrono::steady_clock::now().time_since_epoch().count());
     rng_.seed(seed ^ options_.random_seed);
   } else {
     rng_.seed(options_.random_seed);
@@ -175,8 +171,7 @@ CorridorSphere SphereCorridorGenerator::batchSample(
 }
 
 std::size_t SphereCorridorGenerator::getForwardPointOnPath(
-  const std::vector<Eigen::Vector3d> & guide_path,
-  const CorridorSphere & current_sphere,
+  const std::vector<Eigen::Vector3d> & guide_path, const CorridorSphere & current_sphere,
   const std::size_t start_index) const
 {
   if (guide_path.empty()) {
@@ -210,8 +205,7 @@ Eigen::Vector3d SphereCorridorGenerator::overlapCenter(
 }
 
 std::vector<Eigen::Vector3d> SphereCorridorGenerator::initializeWaypoints(
-  const std::vector<CorridorSphere> & spheres,
-  const Eigen::Vector3d & start,
+  const std::vector<CorridorSphere> & spheres, const Eigen::Vector3d & start,
   const Eigen::Vector3d & goal) const
 {
   std::vector<Eigen::Vector3d> waypoints;
@@ -227,10 +221,8 @@ std::vector<Eigen::Vector3d> SphereCorridorGenerator::initializeWaypoints(
 }
 
 SphereCorridorResult SphereCorridorGenerator::generate(
-  const MapQueryInterface & map,
-  const std::vector<Eigen::Vector3d> & guide_path,
-  const Eigen::Vector3d & start,
-  const Eigen::Vector3d & goal)
+  const MapQueryInterface & map, const std::vector<Eigen::Vector3d> & guide_path,
+  const Eigen::Vector3d & start, const Eigen::Vector3d & goal)
 {
   SphereCorridorResult result;
 
@@ -254,7 +246,8 @@ SphereCorridorResult SphereCorridorGenerator::generate(
   CorridorSphere current = generateOneSphere(map, start);
   if (!current.valid) {
     std::ostringstream oss;
-    oss << "start point has insufficient ESDF clearance for corridor: distance=" << current.raw_distance
+    oss << "start point has insufficient ESDF clearance for corridor: distance="
+        << current.raw_distance
         << ", required>=" << (options_.drone_radius + options_.safety_margin + options_.min_radius);
     result.message = oss.str();
     return result;
@@ -264,7 +257,8 @@ SphereCorridorResult SphereCorridorGenerator::generate(
   std::size_t guide_index = 0U;
 
   int stuck_count = 0;
-  while (!current.contains(goal) && static_cast<int>(result.spheres.size()) < std::max(1, options_.max_spheres)) {
+  while (!current.contains(goal) &&
+         static_cast<int>(result.spheres.size()) < std::max(1, options_.max_spheres)) {
     const std::size_t next_index = getForwardPointOnPath(guide_path, current, guide_index);
     const Eigen::Vector3d guide_point = guide_path[next_index];
 
@@ -273,7 +267,8 @@ SphereCorridorResult SphereCorridorGenerator::generate(
       next = generateOneSphere(map, guide_point);
       if (next.valid) {
         const double overlap = overlapVolume(current, next);
-        next.score = options_.radius_weight * sphereVolume(next.radius) + options_.overlap_weight * overlap;
+        next.score =
+          options_.radius_weight * sphereVolume(next.radius) + options_.overlap_weight * overlap;
         if (overlap < options_.min_overlap_volume) {
           next.valid = false;
         }
@@ -282,8 +277,8 @@ SphereCorridorResult SphereCorridorGenerator::generate(
 
     if (!next.valid) {
       std::ostringstream oss;
-      oss << "BatchSample failed near guide point ["
-          << guide_point.x() << ", " << guide_point.y() << ", " << guide_point.z() << "]";
+      oss << "BatchSample failed near guide point [" << guide_point.x() << ", " << guide_point.y()
+          << ", " << guide_point.z() << "]";
       result.message = oss.str();
       return result;
     }
@@ -294,7 +289,8 @@ SphereCorridorResult SphereCorridorGenerator::generate(
       stuck_count = 0;
     }
     if (stuck_count > 3) {
-      result.message = "sphere corridor generation stopped because sampled centers stopped advancing";
+      result.message =
+        "sphere corridor generation stopped because sampled centers stopped advancing";
       return result;
     }
 
@@ -329,8 +325,8 @@ SphereCorridorResult SphereCorridorGenerator::generate(
 
   std::ostringstream oss;
   oss << "sphere corridor success: spheres=" << result.spheres.size()
-      << ", waypoints=" << result.waypoints.size()
-      << ", radius=[" << min_radius << ", " << max_radius << "]"
+      << ", waypoints=" << result.waypoints.size() << ", radius=[" << min_radius << ", "
+      << max_radius << "]"
       << ", min_overlap=" << min_overlap;
   result.message = oss.str();
   return result;

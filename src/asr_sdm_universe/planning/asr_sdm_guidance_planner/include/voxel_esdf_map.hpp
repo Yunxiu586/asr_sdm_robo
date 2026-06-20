@@ -1,9 +1,9 @@
 #ifndef ASR_SDM_GUIDANCE_PLANNER_MAP_VOXEL_ESDF_MAP_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_MAP_VOXEL_ESDF_MAP_HPP_
 
+#include <Eigen/Core>
 #include <types.hpp>
 
-#include <Eigen/Core>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
@@ -50,14 +50,16 @@ public:
   bool isOccupied(const Eigen::Vector3d & position) const override;
   bool isFree(const GridIndex & index, double extra_clearance = 0.0) const override;
   bool isFree(const Eigen::Vector3d & position, double extra_clearance = 0.0) const override;
-  bool findNearestFree(const GridIndex & seed, int max_radius_voxels, GridIndex & free_index) const override;
+  bool findNearestFree(
+    const GridIndex & seed, int max_radius_voxels, GridIndex & free_index) const override;
 
   double distance(const GridIndex & index) const override;
   double distance(const Eigen::Vector3d & position) const override;
   Eigen::Vector3d gradient(const Eigen::Vector3d & position) const override;
 
   bool segmentIsFree(
-    const Eigen::Vector3d & a, const Eigen::Vector3d & b, double step, double extra_clearance) const override;
+    const Eigen::Vector3d & a, const Eigen::Vector3d & b, double step,
+    double extra_clearance) const override;
   bool pathIsFree(
     const std::vector<Eigen::Vector3d> & path, double step, double extra_clearance) const override;
 

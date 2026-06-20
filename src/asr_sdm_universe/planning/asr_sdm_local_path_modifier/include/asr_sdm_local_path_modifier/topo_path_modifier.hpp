@@ -85,24 +85,19 @@ public:
 
   // Core C++ library interface: manager should provide a collision checker or MapQueryInterface.
   TopoModifierResult modify(
-    const std::vector<Eigen::Vector3d> & input_path,
-    const CollisionChecker & checker);
+    const std::vector<Eigen::Vector3d> & input_path, const CollisionChecker & checker);
 
   TopoModifierResult modify(
     const std::vector<Eigen::Vector3d> & input_path,
     const asr_sdm_esdf_map::MapQueryInterface & map);
 
   bool pathCollides(
-    const std::vector<Eigen::Vector3d> & path,
-    const CollisionChecker & checker,
-    int * first_segment = nullptr,
-    int * last_segment = nullptr) const;
+    const std::vector<Eigen::Vector3d> & path, const CollisionChecker & checker,
+    int * first_segment = nullptr, int * last_segment = nullptr) const;
 
   bool pathCollides(
-    const std::vector<Eigen::Vector3d> & path,
-    const asr_sdm_esdf_map::MapQueryInterface & map,
-    int * first_segment = nullptr,
-    int * last_segment = nullptr) const;
+    const std::vector<Eigen::Vector3d> & path, const asr_sdm_esdf_map::MapQueryInterface & map,
+    int * first_segment = nullptr, int * last_segment = nullptr) const;
 
   // Test compatibility wrapper: RViz virtual obstacles are converted to CollisionChecker.
   TopoModifierResult modify(
@@ -110,10 +105,8 @@ public:
     const std::vector<VirtualObstacle> & obstacles);
 
   bool pathCollides(
-    const std::vector<Eigen::Vector3d> & path,
-    const std::vector<VirtualObstacle> & obstacles,
-    int * first_segment = nullptr,
-    int * last_segment = nullptr) const;
+    const std::vector<Eigen::Vector3d> & path, const std::vector<VirtualObstacle> & obstacles,
+    int * first_segment = nullptr, int * last_segment = nullptr) const;
 
 private:
   struct GraphEdge
@@ -122,12 +115,7 @@ private:
     double cost = 0.0;
   };
 
-  enum class GraphNodeType
-  {
-    Guard,
-    Connector,
-    Sample
-  };
+  enum class GraphNodeType { Guard, Connector, Sample };
 
   struct GraphNode
   {
@@ -141,99 +129,65 @@ private:
 
   bool pointInCollision(const Eigen::Vector3d & point, const CollisionChecker & checker) const;
   bool lineVisib(
-    const Eigen::Vector3d & a,
-    const Eigen::Vector3d & b,
-    const CollisionChecker & checker) const;
+    const Eigen::Vector3d & a, const Eigen::Vector3d & b, const CollisionChecker & checker) const;
   bool segmentCollides(
-    const Eigen::Vector3d & a,
-    const Eigen::Vector3d & b,
-    const CollisionChecker & checker) const;
+    const Eigen::Vector3d & a, const Eigen::Vector3d & b, const CollisionChecker & checker) const;
   double pointClearance(const Eigen::Vector3d & point, const CollisionChecker & checker) const;
 
   bool pointInsideAnyVirtualObstacle(
-    const Eigen::Vector3d & point,
-    const std::vector<VirtualObstacle> & obstacles) const;
+    const Eigen::Vector3d & point, const std::vector<VirtualObstacle> & obstacles) const;
 
   bool segmentCollidesWithVirtualObstacles(
-    const Eigen::Vector3d & a,
-    const Eigen::Vector3d & b,
+    const Eigen::Vector3d & a, const Eigen::Vector3d & b,
     const std::vector<VirtualObstacle> & obstacles) const;
 
   double pointSegmentDistance(
-    const Eigen::Vector3d & point,
-    const Eigen::Vector3d & a,
-    const Eigen::Vector3d & b) const;
+    const Eigen::Vector3d & point, const Eigen::Vector3d & a, const Eigen::Vector3d & b) const;
 
   std::vector<Eigen::Vector3d> buildTopoDetour(
-    const std::vector<Eigen::Vector3d> & input_path,
-    const CollisionChecker & checker,
-    int first_blocked_segment,
-    int last_blocked_segment,
-    int & start_index,
-    int & end_index,
-    std::vector<std::vector<Eigen::Vector3d>> & candidate_paths,
-    std::string & message);
+    const std::vector<Eigen::Vector3d> & input_path, const CollisionChecker & checker,
+    int first_blocked_segment, int last_blocked_segment, int & start_index, int & end_index,
+    std::vector<std::vector<Eigen::Vector3d>> & candidate_paths, std::string & message);
 
   std::vector<std::vector<Eigen::Vector3d>> buildFullCandidatePaths(
-    const std::vector<Eigen::Vector3d> & input_path,
-    int start_index,
-    int end_index,
+    const std::vector<Eigen::Vector3d> & input_path, int start_index, int end_index,
     const std::vector<std::vector<Eigen::Vector3d>> & local_candidate_paths,
     const CollisionChecker & checker) const;
 
   std::vector<Eigen::Vector3d> buildGuardConnectorGraphPath(
-    const std::vector<Eigen::Vector3d> & sample_pool,
-    const CollisionChecker & checker,
-    std::vector<std::vector<Eigen::Vector3d>> & selected_paths,
-    std::string & message) const;
+    const std::vector<Eigen::Vector3d> & sample_pool, const CollisionChecker & checker,
+    std::vector<std::vector<Eigen::Vector3d>> & selected_paths, std::string & message) const;
 
   std::vector<Eigen::Vector3d> buildDenseGraphPath(
-    const std::vector<Eigen::Vector3d> & nodes,
-    const CollisionChecker & checker,
-    std::vector<std::vector<Eigen::Vector3d>> & selected_paths,
-    std::string & message) const;
+    const std::vector<Eigen::Vector3d> & nodes, const CollisionChecker & checker,
+    std::vector<std::vector<Eigen::Vector3d>> & selected_paths, std::string & message) const;
 
   std::vector<int> findVisibGuard(
-    const Eigen::Vector3d & point,
-    const std::vector<GraphNode> & nodes,
+    const Eigen::Vector3d & point, const std::vector<GraphNode> & nodes,
     const CollisionChecker & checker) const;
 
   bool needConnection(
-    int guard_a,
-    int guard_b,
-    const Eigen::Vector3d & connector,
-    std::vector<GraphNode> & nodes,
-    std::vector<std::vector<GraphEdge>> & graph,
-    const CollisionChecker & checker) const;
+    int guard_a, int guard_b, const Eigen::Vector3d & connector, std::vector<GraphNode> & nodes,
+    std::vector<std::vector<GraphEdge>> & graph, const CollisionChecker & checker) const;
 
   void addUndirectedEdge(
-    int a,
-    int b,
-    const std::vector<GraphNode> & nodes,
+    int a, int b, const std::vector<GraphNode> & nodes,
     std::vector<std::vector<GraphEdge>> & graph) const;
 
   bool containsEdge(const std::vector<GraphEdge> & edges, int target) const;
 
   std::vector<std::vector<Eigen::Vector3d>> searchPaths(
-    const std::vector<GraphNode> & nodes,
-    const std::vector<std::vector<GraphEdge>> & graph) const;
+    const std::vector<GraphNode> & nodes, const std::vector<std::vector<GraphEdge>> & graph) const;
 
   void depthFirstSearch(
-    int current,
-    double current_length,
-    double length_limit,
-    const std::vector<GraphNode> & nodes,
-    const std::vector<std::vector<GraphEdge>> & graph,
-    std::vector<int> & path_ids,
-    std::vector<bool> & visited,
-    std::vector<std::vector<Eigen::Vector3d>> & raw_paths) const;
+    int current, double current_length, double length_limit, const std::vector<GraphNode> & nodes,
+    const std::vector<std::vector<GraphEdge>> & graph, std::vector<int> & path_ids,
+    std::vector<bool> & visited, std::vector<std::vector<Eigen::Vector3d>> & raw_paths) const;
 
-  double shortestGraphDistance(
-    const std::vector<std::vector<GraphEdge>> & graph) const;
+  double shortestGraphDistance(const std::vector<std::vector<GraphEdge>> & graph) const;
 
   std::vector<Eigen::Vector3d> shortestGraphPath(
-    const std::vector<Eigen::Vector3d> & nodes,
-    const std::vector<std::vector<GraphEdge>> & graph,
+    const std::vector<Eigen::Vector3d> & nodes, const std::vector<std::vector<GraphEdge>> & graph,
     std::vector<std::vector<Eigen::Vector3d>> & candidate_paths) const;
 
   std::vector<std::vector<Eigen::Vector3d>> shortcutPaths(
@@ -249,39 +203,31 @@ private:
     const CollisionChecker & checker) const;
 
   bool sameTopoPath(
-    const std::vector<Eigen::Vector3d> & path1,
-    const std::vector<Eigen::Vector3d> & path2,
+    const std::vector<Eigen::Vector3d> & path1, const std::vector<Eigen::Vector3d> & path2,
     const CollisionChecker & checker) const;
 
   bool triangleVisible(
-    const Eigen::Vector3d & a,
-    const Eigen::Vector3d & b,
-    const Eigen::Vector3d & c,
+    const Eigen::Vector3d & a, const Eigen::Vector3d & b, const Eigen::Vector3d & c,
     const CollisionChecker & checker) const;
 
   double pathScore(
-    const std::vector<Eigen::Vector3d> & path,
-    const CollisionChecker & checker) const;
+    const std::vector<Eigen::Vector3d> & path, const CollisionChecker & checker) const;
 
   double clearancePenalty(
-    const std::vector<Eigen::Vector3d> & path,
-    const CollisionChecker & checker) const;
+    const std::vector<Eigen::Vector3d> & path, const CollisionChecker & checker) const;
 
   double minClearanceOnPath(
-    const std::vector<Eigen::Vector3d> & path,
-    const CollisionChecker & checker) const;
+    const std::vector<Eigen::Vector3d> & path, const CollisionChecker & checker) const;
 
   double pathLength(const std::vector<Eigen::Vector3d> & path) const;
 
   std::vector<Eigen::Vector3d> discretizePath(
-    const std::vector<Eigen::Vector3d> & path,
-    int point_num) const;
+    const std::vector<Eigen::Vector3d> & path, int point_num) const;
 
   std::vector<Eigen::Vector3d> discretizePath(const std::vector<Eigen::Vector3d> & path) const;
 
   std::vector<Eigen::Vector3d> shortcutPath(
-    const std::vector<Eigen::Vector3d> & path,
-    const CollisionChecker & checker) const;
+    const std::vector<Eigen::Vector3d> & path, const CollisionChecker & checker) const;
 
   std::vector<Eigen::Vector3d> densifyPath(const std::vector<Eigen::Vector3d> & path) const;
   void appendUnique(std::vector<Eigen::Vector3d> & path, const Eigen::Vector3d & point) const;

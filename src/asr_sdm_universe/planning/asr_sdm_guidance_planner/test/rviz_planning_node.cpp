@@ -1,11 +1,11 @@
+#include <ament_index_cpp/get_package_share_directory.hpp>
 #include <rviz_planning_node.hpp>
 
-#include <ament_index_cpp/get_package_share_directory.hpp>
+#include <std_msgs/msg/color_rgba.hpp>
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include <std_msgs/msg/color_rgba.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -15,8 +15,8 @@
 #include <cstring>
 #include <exception>
 #include <filesystem>
-#include <functional>
 #include <fstream>
+#include <functional>
 #include <limits>
 #include <sstream>
 #include <unordered_map>
@@ -47,42 +47,45 @@ RvizPlanningNode::RvizPlanningNode(const rclcpp::NodeOptions & options)
   loadParameters();
   map_.reset(map_options_);
 
-  astar_planner_.setOptions(Astar3dOptions{
-    this->get_parameter("astar.heuristic_weight").as_double(),
-    this->get_parameter("astar.extra_clearance").as_double(),
-    static_cast<int>(this->get_parameter("astar.max_expansions").as_int()),
-    static_cast<int>(this->get_parameter("astar.nearest_free_search_radius").as_int()),
-    this->get_parameter("astar.allow_diagonal").as_bool()});
+  astar_planner_.setOptions(
+    Astar3dOptions{
+      this->get_parameter("astar.heuristic_weight").as_double(),
+      this->get_parameter("astar.extra_clearance").as_double(),
+      static_cast<int>(this->get_parameter("astar.max_expansions").as_int()),
+      static_cast<int>(this->get_parameter("astar.nearest_free_search_radius").as_int()),
+      this->get_parameter("astar.allow_diagonal").as_bool()});
 
-  corridor_generator_.setOptions(SphereCorridorOptions{
-    this->get_parameter("corridor.enabled").as_bool(),
-    static_cast<int>(this->get_parameter("corridor.batch_sample_count").as_int()),
-    static_cast<int>(this->get_parameter("corridor.max_spheres").as_int()),
-    this->get_parameter("corridor.drone_radius").as_double(),
-    this->get_parameter("corridor.safety_margin").as_double(),
-    this->get_parameter("corridor.min_radius").as_double(),
-    this->get_parameter("corridor.max_radius").as_double(),
-    this->get_parameter("corridor.min_overlap_volume").as_double(),
-    this->get_parameter("corridor.radius_weight").as_double(),
-    this->get_parameter("corridor.overlap_weight").as_double(),
-    this->get_parameter("corridor.sample_axis_scale").as_double(),
-    this->get_parameter("corridor.sample_lateral_scale").as_double(),
-    static_cast<uint32_t>(this->get_parameter("corridor.random_seed").as_int()),
-    this->get_parameter("corridor.deterministic_sampling").as_bool()});
+  corridor_generator_.setOptions(
+    SphereCorridorOptions{
+      this->get_parameter("corridor.enabled").as_bool(),
+      static_cast<int>(this->get_parameter("corridor.batch_sample_count").as_int()),
+      static_cast<int>(this->get_parameter("corridor.max_spheres").as_int()),
+      this->get_parameter("corridor.drone_radius").as_double(),
+      this->get_parameter("corridor.safety_margin").as_double(),
+      this->get_parameter("corridor.min_radius").as_double(),
+      this->get_parameter("corridor.max_radius").as_double(),
+      this->get_parameter("corridor.min_overlap_volume").as_double(),
+      this->get_parameter("corridor.radius_weight").as_double(),
+      this->get_parameter("corridor.overlap_weight").as_double(),
+      this->get_parameter("corridor.sample_axis_scale").as_double(),
+      this->get_parameter("corridor.sample_lateral_scale").as_double(),
+      static_cast<uint32_t>(this->get_parameter("corridor.random_seed").as_int()),
+      this->get_parameter("corridor.deterministic_sampling").as_bool()});
 
-  optimizer_.setOptions(LbfgsPathOptimizerOptions{
-    this->get_parameter("optimizer.enabled").as_bool(),
-    static_cast<int>(this->get_parameter("optimizer.max_iterations").as_int()),
-    static_cast<int>(this->get_parameter("optimizer.max_control_points").as_int()),
-    this->get_parameter("optimizer.epsilon").as_double(),
-    this->get_parameter("optimizer.smooth_weight").as_double(),
-    this->get_parameter("optimizer.length_weight").as_double(),
-    this->get_parameter("optimizer.obstacle_weight").as_double(),
-    this->get_parameter("optimizer.guide_weight").as_double(),
-    this->get_parameter("optimizer.safe_distance").as_double(),
-    this->get_parameter("optimizer.validity_check_step").as_double(),
-    this->get_parameter("optimizer.extra_clearance").as_double(),
-    this->get_parameter("optimizer.corridor_weight").as_double()});
+  optimizer_.setOptions(
+    LbfgsPathOptimizerOptions{
+      this->get_parameter("optimizer.enabled").as_bool(),
+      static_cast<int>(this->get_parameter("optimizer.max_iterations").as_int()),
+      static_cast<int>(this->get_parameter("optimizer.max_control_points").as_int()),
+      this->get_parameter("optimizer.epsilon").as_double(),
+      this->get_parameter("optimizer.smooth_weight").as_double(),
+      this->get_parameter("optimizer.length_weight").as_double(),
+      this->get_parameter("optimizer.obstacle_weight").as_double(),
+      this->get_parameter("optimizer.guide_weight").as_double(),
+      this->get_parameter("optimizer.safe_distance").as_double(),
+      this->get_parameter("optimizer.validity_check_step").as_double(),
+      this->get_parameter("optimizer.extra_clearance").as_double(),
+      this->get_parameter("optimizer.corridor_weight").as_double()});
 
   GuidancePlannerOptions guidance_options;
   guidance_options.astar = astar_planner_.options();
@@ -110,24 +113,25 @@ RvizPlanningNode::RvizPlanningNode(const rclcpp::NodeOptions & options)
   waypoints_qos.reliable();
   waypoints_qos.transient_local();
   waypoints_pub_ = this->create_publisher<nav_msgs::msg::Path>(waypoints_topic_, waypoints_qos);
-  astar_marker_pub_ =
-    this->create_publisher<visualization_msgs::msg::Marker>("/planning/astar_path_marker", waypoints_qos);
-  waypoints_marker_pub_ =
-    this->create_publisher<visualization_msgs::msg::Marker>("/planning/waypoints_marker", waypoints_qos);
-  start_goal_marker_pub_ =
-    this->create_publisher<visualization_msgs::msg::Marker>("/planning/start_goal_marker", waypoints_qos);
-  corridor_marker_pub_ =
-    this->create_publisher<visualization_msgs::msg::MarkerArray>(corridor_marker_topic_, waypoints_qos);
+  astar_marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>(
+    "/planning/astar_path_marker", waypoints_qos);
+  waypoints_marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>(
+    "/planning/waypoints_marker", waypoints_qos);
+  start_goal_marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>(
+    "/planning/start_goal_marker", waypoints_qos);
+  corridor_marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+    corridor_marker_topic_, waypoints_qos);
   rclcpp::QoS occupied_map_qos(1);
   occupied_map_qos.reliable();
   occupied_map_qos.transient_local();
-  occupied_map_pub_ = this->create_publisher<visualization_msgs::msg::Marker>(occupied_map_topic_, occupied_map_qos);
+  occupied_map_pub_ =
+    this->create_publisher<visualization_msgs::msg::Marker>(occupied_map_topic_, occupied_map_qos);
 
   if (publish_occupied_map_ && occupied_map_publish_period_sec_ > 0.0) {
     const auto period = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::duration<double>(occupied_map_publish_period_sec_));
-    occupied_map_timer_ = this->create_wall_timer(
-      period, std::bind(&RvizPlanningNode::publishOccupiedMapMarker, this));
+    occupied_map_timer_ =
+      this->create_wall_timer(period, std::bind(&RvizPlanningNode::publishOccupiedMapMarker, this));
   }
 
   if (map_source_ == "binary") {
@@ -148,7 +152,9 @@ RvizPlanningNode::RvizPlanningNode(const rclcpp::NodeOptions & options)
 
   RCLCPP_INFO(
     this->get_logger(),
-    "3D A* + sphere corridor + L-BFGS planner started. Map source: %s. Occupancy topic: %s. ESDF topic: %s. Published path topic: %s. Corridor marker: %s. Use RViz Publish Point (/clicked_point) twice: start then goal.",
+    "3D A* + sphere corridor + L-BFGS planner started. Map source: %s. Occupancy topic: %s. ESDF "
+    "topic: %s. Published path topic: %s. Corridor marker: %s. Use RViz Publish Point "
+    "(/clicked_point) twice: start then goal.",
     map_source_.c_str(), occupancy_map_topic_.c_str(), esdf_map_topic_.c_str(),
     waypoints_topic_.c_str(), corridor_marker_topic_.c_str());
 }
@@ -238,29 +244,40 @@ void RvizPlanningNode::loadParameters()
   esdf_map_topic_ = this->get_parameter("topics.esdf_map").as_string();
   waypoints_topic_ = this->get_parameter("topics.waypoints").as_string();
   map_source_ = this->get_parameter("map.source").as_string();
-  binary_map_directory_ = resolvePackageRelativePath(this->get_parameter("binary_map.directory").as_string());
+  binary_map_directory_ =
+    resolvePackageRelativePath(this->get_parameter("binary_map.directory").as_string());
   occupancy_binary_filename_ = this->get_parameter("binary_map.occupancy_filename").as_string();
   esdf_binary_filename_ = this->get_parameter("binary_map.esdf_filename").as_string();
   binary_fallback_to_topic_ = this->get_parameter("binary_map.fallback_to_topic").as_bool();
   binary_auto_bounds_ = this->get_parameter("binary_map.auto_bounds").as_bool();
-  binary_auto_bounds_padding_ = std::max(0.0, this->get_parameter("binary_map.auto_bounds_padding").as_double());
+  binary_auto_bounds_padding_ =
+    std::max(0.0, this->get_parameter("binary_map.auto_bounds_padding").as_double());
   publish_occupied_map_ = this->get_parameter("visualization.publish_occupied_map").as_bool();
   occupied_map_topic_ = this->get_parameter("visualization.occupied_map_topic").as_string();
-  occupied_map_alpha_ = std::clamp(this->get_parameter("visualization.occupied_map_alpha").as_double(), 0.0, 1.0);
-  occupied_map_stride_ = std::max(1, static_cast<int>(this->get_parameter("visualization.occupied_map_stride").as_int()));
-  occupied_map_mesh_resolution_ = this->get_parameter("visualization.occupied_map_mesh_resolution").as_double();
-  occupied_map_mesh_max_height_gap_ = this->get_parameter("visualization.occupied_map_mesh_max_height_gap").as_double();
+  occupied_map_alpha_ =
+    std::clamp(this->get_parameter("visualization.occupied_map_alpha").as_double(), 0.0, 1.0);
+  occupied_map_stride_ = std::max(
+    1, static_cast<int>(this->get_parameter("visualization.occupied_map_stride").as_int()));
+  occupied_map_mesh_resolution_ =
+    this->get_parameter("visualization.occupied_map_mesh_resolution").as_double();
+  occupied_map_mesh_max_height_gap_ =
+    this->get_parameter("visualization.occupied_map_mesh_max_height_gap").as_double();
   occupied_map_ground_height_ = this->get_parameter("visualization.ground_height").as_double();
   occupied_map_visualization_truncate_height_ =
     this->get_parameter("visualization.visualization_truncate_height").as_double();
-  occupied_map_publish_period_sec_ = this->get_parameter("visualization.occupied_map_publish_period_sec").as_double();
+  occupied_map_publish_period_sec_ =
+    this->get_parameter("visualization.occupied_map_publish_period_sec").as_double();
   corridor_marker_topic_ = this->get_parameter("visualization.corridor_marker_topic").as_string();
-  corridor_marker_alpha_ = std::clamp(this->get_parameter("visualization.corridor_marker_alpha").as_double(), 0.01, 1.0);
+  corridor_marker_alpha_ =
+    std::clamp(this->get_parameter("visualization.corridor_marker_alpha").as_double(), 0.01, 1.0);
   clicked_point_use_msg_z_ = this->get_parameter("selection.clicked_point_use_msg_z").as_bool();
   default_planning_z_ = this->get_parameter("selection.default_planning_z").as_double();
-  use_optimized_only_if_safe_ = this->get_parameter("selection.use_optimized_only_if_safe").as_bool();
-  project_start_goal_to_safe_ = this->get_parameter("selection.project_start_goal_to_safe").as_bool();
-  safe_point_search_radius_ = std::max(0.0, this->get_parameter("selection.safe_point_search_radius").as_double());
+  use_optimized_only_if_safe_ =
+    this->get_parameter("selection.use_optimized_only_if_safe").as_bool();
+  project_start_goal_to_safe_ =
+    this->get_parameter("selection.project_start_goal_to_safe").as_bool();
+  safe_point_search_radius_ =
+    std::max(0.0, this->get_parameter("selection.safe_point_search_radius").as_double());
   skip_repeated_occupancy_with_same_point_count_ =
     this->get_parameter("map.skip_repeated_occupancy_with_same_point_count").as_bool();
   skip_repeated_esdf_with_same_point_count_ =
@@ -272,14 +289,14 @@ void RvizPlanningNode::loadParameters()
     this->get_parameter("map.origin_y").as_double(),
     this->get_parameter("map.origin_z").as_double());
   map_options_.size = Eigen::Vector3d(
-    this->get_parameter("map.size_x").as_double(),
-    this->get_parameter("map.size_y").as_double(),
+    this->get_parameter("map.size_x").as_double(), this->get_parameter("map.size_y").as_double(),
     this->get_parameter("map.size_z").as_double());
   map_options_.unknown_as_occupied = this->get_parameter("map.unknown_as_occupied").as_bool();
   map_options_.clear_before_integrate = this->get_parameter("map.clear_before_integrate").as_bool();
   safe_point_search_radius_ = std::max(map_options_.resolution, safe_point_search_radius_);
   occupied_map_mesh_resolution_ = std::max(map_options_.resolution, occupied_map_mesh_resolution_);
-  occupied_map_mesh_max_height_gap_ = std::max(map_options_.resolution, occupied_map_mesh_max_height_gap_);
+  occupied_map_mesh_max_height_gap_ =
+    std::max(map_options_.resolution, occupied_map_mesh_max_height_gap_);
   occupied_map_visualization_truncate_height_ =
     std::max(occupied_map_ground_height_ + 1.0e-3, occupied_map_visualization_truncate_height_);
 }
@@ -291,8 +308,7 @@ void RvizPlanningNode::occupancyCallback(sensor_msgs::msg::PointCloud2::ConstSha
 
   if (
     skip_repeated_occupancy_with_same_point_count_ && map_.hasOccupancy() &&
-    static_cast<int>(cloud.points.size()) == last_occupancy_point_count_)
-  {
+    static_cast<int>(cloud.points.size()) == last_occupancy_point_count_) {
     return;
   }
 
@@ -314,8 +330,7 @@ void RvizPlanningNode::esdfCallback(sensor_msgs::msg::PointCloud2::ConstSharedPt
 
   if (
     skip_repeated_esdf_with_same_point_count_ && map_.hasEsdf() &&
-    static_cast<int>(cloud.points.size()) == last_esdf_point_count_)
-  {
+    static_cast<int>(cloud.points.size()) == last_esdf_point_count_) {
     return;
   }
 
@@ -325,8 +340,8 @@ void RvizPlanningNode::esdfCallback(sensor_msgs::msg::PointCloud2::ConstSharedPt
   RCLCPP_INFO(
     this->get_logger(),
     "External ESDF updated: input_points=%d, esdf_voxels=%d, occupancy=%s, planner_ready=%s",
-    map_.esdfInputPointCount(), map_.esdfVoxelCount(),
-    map_.hasOccupancy() ? "ready" : "not_ready", map_.isReady() ? "true" : "false");
+    map_.esdfInputPointCount(), map_.esdfVoxelCount(), map_.hasOccupancy() ? "ready" : "not_ready",
+    map_.isReady() ? "true" : "false");
 }
 
 bool RvizPlanningNode::loadBinaryMap()
@@ -359,7 +374,8 @@ bool RvizPlanningNode::loadBinaryMap()
 
   RCLCPP_INFO(
     this->get_logger(),
-    "Loaded binary map: occupancy=%s, esdf=%s, occupied_voxels=%d, esdf_voxels=%d, voxels=%d, planner_ready=%s, frame_id=%s",
+    "Loaded binary map: occupancy=%s, esdf=%s, occupied_voxels=%d, esdf_voxels=%d, voxels=%d, "
+    "planner_ready=%s, frame_id=%s",
     occupancy_path.c_str(), esdf_path.c_str(), map_.occupiedCount(), map_.esdfVoxelCount(),
     map_.voxelCount(), map_.isReady() ? "true" : "false", frame_id_.c_str());
 
@@ -373,7 +389,8 @@ bool RvizPlanningNode::loadBinaryMap()
   if (!map_.hasEsdf()) {
     RCLCPP_WARN(
       this->get_logger(),
-      "Binary ESDF map was opened but no finite distance points fell inside the configured map bounds. "
+      "Binary ESDF map was opened but no finite distance points fell inside the configured map "
+      "bounds. "
       "Check esdf.bin and map origin/size/resolution.");
   }
 
@@ -428,9 +445,9 @@ bool RvizPlanningNode::loadOccupancyBinary(
     return false;
   }
 
-  if (!magicMatches(header.magic, "ASR_OCC_BIN_V1") || header.version != 1U || header.map_type != 1U ||
-      header.floats_per_record != 3U)
-  {
+  if (
+    !magicMatches(header.magic, "ASR_OCC_BIN_V1") || header.version != 1U ||
+    header.map_type != 1U || header.floats_per_record != 3U) {
     status = "Unsupported occupancy binary format: " + path;
     return false;
   }
@@ -469,7 +486,8 @@ bool RvizPlanningNode::loadOccupancyBinary(
   cloud.width = static_cast<uint32_t>(cloud.size());
   cloud.height = 1U;
   cloud.is_dense = true;
-  status = "Loaded occupancy binary frame=" + file_frame + ", points=" + std::to_string(cloud.size());
+  status =
+    "Loaded occupancy binary frame=" + file_frame + ", points=" + std::to_string(cloud.size());
   return !cloud.empty();
 }
 
@@ -497,9 +515,9 @@ bool RvizPlanningNode::loadEsdfBinary(
     return false;
   }
 
-  if (!magicMatches(header.magic, "ASR_ESDF_BIN_V1") || header.version != 1U || header.map_type != 2U ||
-      header.floats_per_record != 4U)
-  {
+  if (
+    !magicMatches(header.magic, "ASR_ESDF_BIN_V1") || header.version != 1U ||
+    header.map_type != 2U || header.floats_per_record != 4U) {
     status = "Unsupported ESDF binary format: " + path;
     return false;
   }
@@ -529,9 +547,9 @@ bool RvizPlanningNode::loadEsdfBinary(
       status = "Unexpected EOF while reading ESDF binary: " + path;
       return false;
     }
-    if (!std::isfinite(xyzi[0]) || !std::isfinite(xyzi[1]) || !std::isfinite(xyzi[2]) ||
-        !std::isfinite(xyzi[3]))
-    {
+    if (
+      !std::isfinite(xyzi[0]) || !std::isfinite(xyzi[1]) || !std::isfinite(xyzi[2]) ||
+      !std::isfinite(xyzi[3])) {
       continue;
     }
     pcl::PointXYZI point;
@@ -551,7 +569,8 @@ bool RvizPlanningNode::loadEsdfBinary(
 
 bool RvizPlanningNode::updateBoundsFromBinaryFile(
   const std::string & path, const char * expected_magic, const uint32_t expected_map_type,
-  const uint32_t expected_floats_per_record, Eigen::Vector3d & min_bound, Eigen::Vector3d & max_bound) const
+  const uint32_t expected_floats_per_record, Eigen::Vector3d & min_bound,
+  Eigen::Vector3d & max_bound) const
 {
   std::ifstream ifs(path, std::ios::binary);
   if (!ifs.is_open()) {
@@ -568,10 +587,10 @@ bool RvizPlanningNode::updateBoundsFromBinaryFile(
   ifs.read(reinterpret_cast<char *>(&header.point_count), sizeof(header.point_count));
   ifs.read(reinterpret_cast<char *>(&header.frame_id_length), sizeof(header.frame_id_length));
 
-  if (!ifs.good() || !magicMatches(header.magic, expected_magic) || header.version != 1U ||
-      header.map_type != expected_map_type || header.floats_per_record != expected_floats_per_record ||
-      header.frame_id_length > 4096U)
-  {
+  if (
+    !ifs.good() || !magicMatches(header.magic, expected_magic) || header.version != 1U ||
+    header.map_type != expected_map_type ||
+    header.floats_per_record != expected_floats_per_record || header.frame_id_length > 4096U) {
     return false;
   }
 
@@ -628,7 +647,10 @@ bool RvizPlanningNode::resetMapBoundsFromBinaryData(
   }
 
   if (!has_bound) {
-    RCLCPP_WARN(this->get_logger(), "binary_map.auto_bounds is enabled, but no finite point bounds were found. Using configured map bounds.");
+    RCLCPP_WARN(
+      this->get_logger(),
+      "binary_map.auto_bounds is enabled, but no finite point bounds were found. Using configured "
+      "map bounds.");
     return false;
   }
 
@@ -650,7 +672,8 @@ bool RvizPlanningNode::resetMapBoundsFromBinaryData(
 
   RCLCPP_INFO(
     this->get_logger(),
-    "Auto map bounds from binary data: origin=[%.3f, %.3f, %.3f], size=[%.3f, %.3f, %.3f], resolution=%.3f",
+    "Auto map bounds from binary data: origin=[%.3f, %.3f, %.3f], size=[%.3f, %.3f, %.3f], "
+    "resolution=%.3f",
     map_options_.origin.x(), map_options_.origin.y(), map_options_.origin.z(),
     map_options_.size.x(), map_options_.size.y(), map_options_.size.z(), map_options_.resolution);
   return true;
@@ -690,13 +713,16 @@ std::string RvizPlanningNode::resolvePackageRelativePath(const std::string & pat
 
   try {
     return (std::filesystem::path(
-              ament_index_cpp::get_package_share_directory("asr_sdm_guidance_planner")) / fs_path).string();
+              ament_index_cpp::get_package_share_directory("asr_sdm_guidance_planner")) /
+            fs_path)
+      .string();
   } catch (const std::exception &) {
     return fs_path.string();
   }
 }
 
-std::string RvizPlanningNode::joinPath(const std::string & directory, const std::string & filename) const
+std::string RvizPlanningNode::joinPath(
+  const std::string & directory, const std::string & filename) const
 {
   return (std::filesystem::path(directory) / filename).string();
 }
@@ -732,11 +758,11 @@ void RvizPlanningNode::publishOccupiedMapMarker() const
   const double mesh_resolution = mesh_step * map_.resolution();
   const double half = 0.5 * mesh_resolution;
   const double z_min = occupied_map_ground_height_;
-  const double z_max = std::max(occupied_map_ground_height_ + 1.0e-3, occupied_map_visualization_truncate_height_);
+  const double z_max =
+    std::max(occupied_map_ground_height_ + 1.0e-3, occupied_map_visualization_truncate_height_);
 
   auto block_key = [](int x, int y, int z) -> long long {
-    return (static_cast<long long>(x) << 42) ^
-           (static_cast<long long>(y) << 21) ^
+    return (static_cast<long long>(x) << 42) ^ (static_cast<long long>(y) << 21) ^
            static_cast<long long>(z);
   };
 
@@ -749,16 +775,17 @@ void RvizPlanningNode::publishOccupiedMapMarker() const
     mk.colors.push_back(color);
   };
 
-  auto add_tri = [&](const Eigen::Vector3d & a, const Eigen::Vector3d & b,
-                     const Eigen::Vector3d & c, const std_msgs::msg::ColorRGBA & color) {
+  auto add_tri = [&](
+                   const Eigen::Vector3d & a, const Eigen::Vector3d & b, const Eigen::Vector3d & c,
+                   const std_msgs::msg::ColorRGBA & color) {
     add_vertex(a, color);
     add_vertex(b, color);
     add_vertex(c, color);
   };
 
-  auto add_quad = [&](const Eigen::Vector3d & a, const Eigen::Vector3d & b,
-                      const Eigen::Vector3d & c, const Eigen::Vector3d & d,
-                      const std_msgs::msg::ColorRGBA & color) {
+  auto add_quad = [&](
+                    const Eigen::Vector3d & a, const Eigen::Vector3d & b, const Eigen::Vector3d & c,
+                    const Eigen::Vector3d & d, const std_msgs::msg::ColorRGBA & color) {
     add_tri(a, b, c, color);
     add_tri(a, c, d, color);
   };
@@ -832,7 +859,8 @@ void RvizPlanningNode::publishOccupiedMapMarker() const
   if (mk.points.empty()) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(), *this->get_clock(), 3000,
-      "Occupied map marker is empty. The binary file may be empty or outside the configured map bounds/truncate height.");
+      "Occupied map marker is empty. The binary file may be empty or outside the configured map "
+      "bounds/truncate height.");
   }
 
   occupied_map_pub_->publish(mk);
@@ -852,7 +880,8 @@ void RvizPlanningNode::clickedPointCallback(geometry_msgs::msg::PointStamped::Co
     setStart(point);
     waiting_for_goal_click_ = true;
     publishStatusText("Start selected. Click goal point.");
-    RCLCPP_INFO(this->get_logger(), "Start selected: [%.3f, %.3f, %.3f]", point.x(), point.y(), point.z());
+    RCLCPP_INFO(
+      this->get_logger(), "Start selected: [%.3f, %.3f, %.3f]", point.x(), point.y(), point.z());
     return;
   }
 
@@ -885,14 +914,16 @@ void RvizPlanningNode::setGoalAndPlan(const Eigen::Vector3d & goal)
 void RvizPlanningNode::runPlanning()
 {
   if (!map_.isReady()) {
-    RCLCPP_WARN(this->get_logger(), "Map is not ready. Load occupancy + ESDF binaries or wait for both map topics first.");
+    RCLCPP_WARN(
+      this->get_logger(),
+      "Map is not ready. Load occupancy + ESDF binaries or wait for both map topics first.");
     publishStatusText("Map is not ready.");
     return;
   }
 
   RCLCPP_INFO(
-    this->get_logger(), "Planning from [%.2f %.2f %.2f] to [%.2f %.2f %.2f]",
-    start_.x(), start_.y(), start_.z(), goal_.x(), goal_.y(), goal_.z());
+    this->get_logger(), "Planning from [%.2f %.2f %.2f] to [%.2f %.2f %.2f]", start_.x(),
+    start_.y(), start_.z(), goal_.x(), goal_.y(), goal_.z());
 
   GuidancePlannerResult result = guidance_planner_.plan(map_, start_, goal_);
 
@@ -901,8 +932,7 @@ void RvizPlanningNode::runPlanning()
     goal_ = result.planning_goal;
     publishStartGoalMarker();
     RCLCPP_INFO(
-      this->get_logger(),
-      "Projected RViz raw points to safe corridor points: %s%s%s",
+      this->get_logger(), "Projected RViz raw points to safe corridor points: %s%s%s",
       result.start_projected ? result.start_projection_status.c_str() : "",
       (result.start_projected && result.goal_projected) ? " | " : "",
       result.goal_projected ? result.goal_projection_status.c_str() : "");
@@ -925,7 +955,8 @@ void RvizPlanningNode::runPlanning()
   }
 
   publishPath(result.final_waypoints, waypoints_pub_);
-  publishLineMarker(result.final_waypoints, waypoints_marker_pub_, 1, 0.08, 1.0f, 0.15f, 0.05f, 1.0f);
+  publishLineMarker(
+    result.final_waypoints, waypoints_marker_pub_, 1, 0.08, 1.0f, 0.15f, 0.05f, 1.0f);
 
   publishStatusText(result.message);
   RCLCPP_INFO(this->get_logger(), "%s", result.message.c_str());
@@ -938,9 +969,7 @@ double RvizPlanningNode::corridorRequiredClearance() const
 }
 
 bool RvizPlanningNode::findNearestSafePlanningPoint(
-  const Eigen::Vector3d & seed,
-  const std::string & label,
-  Eigen::Vector3d & safe_point,
+  const Eigen::Vector3d & seed, const std::string & label, Eigen::Vector3d & safe_point,
   std::string & status) const
 {
   if (!map_.hasEsdf()) {
@@ -966,8 +995,8 @@ bool RvizPlanningNode::findNearestSafePlanningPoint(
 
   const double required_clearance = corridorRequiredClearance();
   const double step_size = std::max(map_.resolution(), 1.0e-3);
-  const int max_steps = std::max(
-    1, static_cast<int>(std::ceil(safe_point_search_radius_ / step_size)));
+  const int max_steps =
+    std::max(1, static_cast<int>(std::ceil(safe_point_search_radius_ / step_size)));
   const double max_distance = safe_point_search_radius_ + 0.5 * map_.resolution();
   const double min_progress = 1.0e-6;
 
@@ -1007,10 +1036,10 @@ bool RvizPlanningNode::findNearestSafePlanningPoint(
     return std::isfinite(clearance);
   };
 
-  const auto chooseDiscreteGradientNeighbor = [
-    &](const GridIndex & center, const double center_clearance,
-       GridIndex & next_index, double & next_clearance) -> bool
-  {
+  const auto chooseDiscreteGradientNeighbor =
+    [&](
+      const GridIndex & center, const double center_clearance, GridIndex & next_index,
+      double & next_clearance) -> bool {
     bool found = false;
     double best_score = -std::numeric_limits<double>::infinity();
     GridIndex best_index = center;
@@ -1063,20 +1092,18 @@ bool RvizPlanningNode::findNearestSafePlanningPoint(
     if (isSafeIndex(current_index, current_clearance)) {
       safe_point = map_.indexToWorld(current_index);
       std::ostringstream oss;
-      oss << "gradient-projected " << label << " from ["
-          << seed.x() << ", " << seed.y() << ", " << seed.z() << "] to ["
-          << safe_point.x() << ", " << safe_point.y() << ", " << safe_point.z()
-          << "], shift=" << (safe_point - seed).norm()
-          << " m, clearance=" << current_clearance
-          << " m, required>=" << required_clearance
-          << ", gradient_steps=" << gradient_steps
-          << ", inspected_points=" << inspected_points;
+      oss << "gradient-projected " << label << " from [" << seed.x() << ", " << seed.y() << ", "
+          << seed.z() << "] to [" << safe_point.x() << ", " << safe_point.y() << ", "
+          << safe_point.z() << "], shift=" << (safe_point - seed).norm()
+          << " m, clearance=" << current_clearance << " m, required>=" << required_clearance
+          << ", gradient_steps=" << gradient_steps << ", inspected_points=" << inspected_points;
       status = oss.str();
       return true;
     }
 
     double usable_current_clearance = 0.0;
-    const bool current_has_finite_esdf = isUsableGradientIndex(current_index, usable_current_clearance);
+    const bool current_has_finite_esdf =
+      isUsableGradientIndex(current_index, usable_current_clearance);
     if (!current_has_finite_esdf) {
       usable_current_clearance = -std::numeric_limits<double>::infinity();
     }
@@ -1087,22 +1114,22 @@ bool RvizPlanningNode::findNearestSafePlanningPoint(
 
     const Eigen::Vector3d current_point = map_.indexToWorld(current_index);
     const Eigen::Vector3d gradient = map_.gradient(current_point);
-    if (std::isfinite(gradient.x()) && std::isfinite(gradient.y()) && std::isfinite(gradient.z()) &&
-        gradient.norm() > 1.0e-6)
-    {
+    if (
+      std::isfinite(gradient.x()) && std::isfinite(gradient.y()) && std::isfinite(gradient.z()) &&
+      gradient.norm() > 1.0e-6) {
       Eigen::Vector3d proposal = current_point + step_size * gradient.normalized();
       for (int axis = 0; axis < 3; ++axis) {
         proposal(axis) = std::clamp(proposal(axis), lower(axis), upper(axis));
       }
 
       GridIndex proposal_index;
-      if ((proposal - seed).norm() <= max_distance && map_.worldToIndex(proposal, proposal_index) &&
-          !(proposal_index == current_index))
-      {
+      if (
+        (proposal - seed).norm() <= max_distance && map_.worldToIndex(proposal, proposal_index) &&
+        !(proposal_index == current_index)) {
         double proposal_clearance = 0.0;
-        if (isUsableGradientIndex(proposal_index, proposal_clearance) &&
-            proposal_clearance > usable_current_clearance + min_progress)
-        {
+        if (
+          isUsableGradientIndex(proposal_index, proposal_clearance) &&
+          proposal_clearance > usable_current_clearance + min_progress) {
           next_index = proposal_index;
           next_clearance = proposal_clearance;
           have_next = true;
@@ -1111,7 +1138,8 @@ bool RvizPlanningNode::findNearestSafePlanningPoint(
     }
 
     if (!have_next) {
-      have_next = chooseDiscreteGradientNeighbor(current_index, usable_current_clearance, next_index, next_clearance);
+      have_next = chooseDiscreteGradientNeighbor(
+        current_index, usable_current_clearance, next_index, next_clearance);
     }
 
     if (!have_next || next_index == current_index) {
@@ -1126,8 +1154,7 @@ bool RvizPlanningNode::findNearestSafePlanningPoint(
 
   std::ostringstream oss;
   oss << "Cannot gradient-project " << label << " point to a safe corridor point within "
-      << safe_point_search_radius_ << " m: required ESDF clearance >= "
-      << required_clearance;
+      << safe_point_search_radius_ << " m: required ESDF clearance >= " << required_clearance;
   if (std::isfinite(best_seen_clearance)) {
     oss << ", best reached clearance=" << best_seen_clearance
         << " m at shift=" << (best_seen_point - seed).norm() << " m";
@@ -1171,13 +1198,8 @@ void RvizPlanningNode::publishPath(
 
 void RvizPlanningNode::publishLineMarker(
   const std::vector<Eigen::Vector3d> & path,
-  const rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr & pub,
-  int id,
-  double width,
-  float r,
-  float g,
-  float b,
-  float a) const
+  const rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr & pub, int id, double width,
+  float r, float g, float b, float a) const
 {
   visualization_msgs::msg::Marker marker;
   marker.header.frame_id = frame_id_;
@@ -1251,7 +1273,6 @@ void RvizPlanningNode::publishStartGoalMarker() const
 
   start_goal_marker_pub_->publish(marker);
 }
-
 
 void RvizPlanningNode::publishCorridorMarkers(const std::vector<CorridorSphere> & spheres)
 {
@@ -1327,8 +1348,8 @@ void RvizPlanningNode::clearCorridorMarkers()
 
 void RvizPlanningNode::publishStatusText(const std::string &) const
 {
-  // Intentionally empty: RViz status text is disabled so no white text is shown after selecting points.
+  // Intentionally empty: RViz status text is disabled so no white text is shown after selecting
+  // points.
 }
-
 
 }  // namespace asr_sdm_guidance_planner

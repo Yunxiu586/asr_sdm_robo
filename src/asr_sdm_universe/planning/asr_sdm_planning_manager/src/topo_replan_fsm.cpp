@@ -229,7 +229,6 @@ void TopoReplanFSM::execFSMCallback()
 
     case EXEC_TRAJ: {
       /* determine if need to replan */
-
       GlobalTrajData * global_data = &planner_manager_->global_data_;
       rclcpp::Time time_now = node_->now();
       double t_cur = (time_now - global_data->global_start_time_).seconds();

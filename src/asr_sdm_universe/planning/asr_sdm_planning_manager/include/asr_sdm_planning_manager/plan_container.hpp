@@ -1,44 +1,45 @@
 /**
-* This file is part of Fast-Planner.
-*
-* Copyright 2019 Boyu Zhou, Aerial Robotics Group, Hong Kong University of Science and Technology, <uav.ust.hk>
-* Developed by Boyu Zhou <bzhouai at connect dot ust dot hk>, <uv dot boyuzhou at gmail dot com>
-* for more information see <https://github.com/HKUST-Aerial-Robotics/Fast-Planner>.
-* If you use this code, please cite the respective publications as
-* listed on the above website.
-*
-* Fast-Planner is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Lesser General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* Fast-Planner is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU Lesser General Public License
-* along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
-*/
-
-
+ * This file is part of Fast-Planner.
+ *
+ * Copyright 2019 Boyu Zhou, Aerial Robotics Group, Hong Kong University of Science and Technology,
+ * <uav.ust.hk> Developed by Boyu Zhou <bzhouai at connect dot ust dot hk>, <uv dot boyuzhou at
+ * gmail dot com> for more information see <https://github.com/HKUST-Aerial-Robotics/Fast-Planner>.
+ * If you use this code, please cite the respective publications as
+ * listed on the above website.
+ *
+ * Fast-Planner is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Fast-Planner is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef _PLAN_CONTAINER_H_
 #define _PLAN_CONTAINER_H_
 
 #include <Eigen/Eigen>
-#include <vector>
 #include <rclcpp/rclcpp.hpp>
 
-#include <bspline/non_uniform_bspline.h>
-#include <asr_sdm_trajectory_generator/mini_snap_traj.h>
 #include <asr_sdm_local_path_modifier/topo_prm.h>
+#include <asr_sdm_trajectory_generator/mini_snap_traj.h>
+#include <bspline/non_uniform_bspline.h>
+
+#include <vector>
 
 using std::vector;
 
-namespace fast_planner {
+namespace fast_planner
+{
 
-class GlobalTrajData {
+class GlobalTrajData
+{
 private:
 public:
   PolynomialTraj global_traj_;
@@ -56,7 +57,8 @@ public:
 
   bool localTrajReachTarget() { return fabs(local_end_time_ - global_duration_) < 0.1; }
 
-  void setGlobalTraj(const PolynomialTraj& traj, const rclcpp::Time& time) {
+  void setGlobalTraj(const PolynomialTraj & traj, const rclcpp::Time & time)
+  {
     global_traj_ = traj;
     global_traj_.init();
     global_duration_ = global_traj_.getTimeSum();
@@ -69,7 +71,8 @@ public:
     last_time_inc_ = 0.0;
   }
 
-  void setLocalTraj(NonUniformBspline traj, double local_ts, double local_te, double time_inc) {
+  void setLocalTraj(NonUniformBspline traj, double local_ts, double local_te, double time_inc)
+  {
     local_traj_.resize(3);
     local_traj_[0] = traj;
     local_traj_[1] = local_traj_[0].getDerivative();
@@ -82,7 +85,8 @@ public:
     last_time_inc_ = time_inc;
   }
 
-  Eigen::Vector3d getPosition(double t) {
+  Eigen::Vector3d getPosition(double t)
+  {
     if (t >= -1e-3 && t <= local_start_time_) {
       return global_traj_.evaluate(t - time_increase_ + last_time_inc_);
     } else if (t >= local_end_time_ && t <= global_duration_ + 1e-3) {
@@ -94,7 +98,8 @@ public:
     }
   }
 
-  Eigen::Vector3d getVelocity(double t) {
+  Eigen::Vector3d getVelocity(double t)
+  {
     if (t >= -1e-3 && t <= local_start_time_) {
       return global_traj_.evaluateVel(t);
     } else if (t >= local_end_time_ && t <= global_duration_ + 1e-3) {
@@ -106,7 +111,8 @@ public:
     }
   }
 
-  Eigen::Vector3d getAcceleration(double t) {
+  Eigen::Vector3d getAcceleration(double t)
+  {
     if (t >= -1e-3 && t <= local_start_time_) {
       return global_traj_.evaluateAcc(t);
     } else if (t >= local_end_time_ && t <= global_duration_ + 1e-3) {
@@ -121,9 +127,11 @@ public:
   // get Bspline paramterization data of a local trajectory within a sphere
   // start_t: start time of the trajectory
   // dist_pt: distance between the discretized points
-  void getTrajByRadius(const double& start_t, const double& des_radius, const double& dist_pt,
-                       vector<Eigen::Vector3d>& point_set, vector<Eigen::Vector3d>& start_end_derivative,
-                       double& dt, double& seg_duration) {
+  void getTrajByRadius(
+    const double & start_t, const double & des_radius, const double & dist_pt,
+    vector<Eigen::Vector3d> & point_set, vector<Eigen::Vector3d> & start_end_derivative,
+    double & dt, double & seg_duration)
+  {
     double seg_length = 0.0;  // length of the truncated segment
     double seg_time = 0.0;    // duration of the truncated segment
     double radius = 0.0;      // distance to the first point of the segment
@@ -168,9 +176,10 @@ public:
   // start_t: start time of the trajectory
   // duration: time length of the segment
   // seg_num: discretized the segment into *seg_num* parts
-  void getTrajByDuration(double start_t, double duration, int seg_num,
-                         vector<Eigen::Vector3d>& point_set,
-                         vector<Eigen::Vector3d>& start_end_derivative, double& dt) {
+  void getTrajByDuration(
+    double start_t, double duration, int seg_num, vector<Eigen::Vector3d> & point_set,
+    vector<Eigen::Vector3d> & start_end_derivative, double & dt)
+  {
     dt = duration / seg_num;
     Eigen::Vector3d cur_pt;
     for (double tp = 0.0; tp <= duration + 1e-4; tp += dt) {
@@ -185,7 +194,8 @@ public:
   }
 };
 
-struct PlanParameters {
+struct PlanParameters
+{
   /* planning algorithm parameters */
   double max_vel_, max_acc_, max_jerk_;  // physical limits
   double local_traj_len_;                // local replanning trajectory length
@@ -199,7 +209,8 @@ struct PlanParameters {
   double time_adjust_ = 0.0;
 };
 
-struct LocalTrajData {
+struct LocalTrajData
+{
   /* info of generated traj */
 
   int traj_id_;
@@ -207,10 +218,11 @@ struct LocalTrajData {
   rclcpp::Time start_time_;
   Eigen::Vector3d start_pos_;
   NonUniformBspline position_traj_, velocity_traj_, acceleration_traj_, yaw_traj_, yawdot_traj_,
-      yawdotdot_traj_;
+    yawdotdot_traj_;
 };
 
-class MidPlanData {
+class MidPlanData
+{
 public:
   MidPlanData(/* args */) {}
   ~MidPlanData() {}
@@ -241,7 +253,8 @@ public:
   double dt_yaw_;
   double dt_yaw_path_;
 
-  void clearTopoPaths() {
+  void clearTopoPaths()
+  {
     topo_traj_pos1_.clear();
     topo_traj_pos2_.clear();
     topo_graph_.clear();
@@ -250,9 +263,11 @@ public:
     topo_select_paths_.clear();
   }
 
-  void addTopoPaths(list<GraphNode::Ptr>& graph, vector<vector<Eigen::Vector3d>>& paths,
-                    vector<vector<Eigen::Vector3d>>& filtered_paths,
-                    vector<vector<Eigen::Vector3d>>& selected_paths) {
+  void addTopoPaths(
+    list<GraphNode::Ptr> & graph, vector<vector<Eigen::Vector3d>> & paths,
+    vector<vector<Eigen::Vector3d>> & filtered_paths,
+    vector<vector<Eigen::Vector3d>> & selected_paths)
+  {
     topo_graph_ = graph;
     topo_paths_ = paths;
     topo_filtered_paths_ = filtered_paths;

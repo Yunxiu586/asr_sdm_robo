@@ -1,55 +1,57 @@
 /**
-* This file is part of Fast-Planner.
-*
-* Copyright 2019 Boyu Zhou, Aerial Robotics Group, Hong Kong University of Science and Technology, <uav.ust.hk>
-* Developed by Boyu Zhou <bzhouai at connect dot ust dot hk>, <uv dot boyuzhou at gmail dot com>
-* for more information see <https://github.com/HKUST-Aerial-Robotics/Fast-Planner>.
-* If you use this code, please cite the respective publications as
-* listed on the above website.
-*
-* Fast-Planner is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Lesser General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* Fast-Planner is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU Lesser General Public License
-* along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
-*/
-
-
+ * This file is part of Fast-Planner.
+ *
+ * Copyright 2019 Boyu Zhou, Aerial Robotics Group, Hong Kong University of Science and Technology,
+ * <uav.ust.hk> Developed by Boyu Zhou <bzhouai at connect dot ust dot hk>, <uv dot boyuzhou at
+ * gmail dot com> for more information see <https://github.com/HKUST-Aerial-Robotics/Fast-Planner>.
+ * If you use this code, please cite the respective publications as
+ * listed on the above website.
+ *
+ * Fast-Planner is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Fast-Planner is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef _TOPO_REPLAN_FSM_H_
 #define _TOPO_REPLAN_FSM_H_
 
 #include <Eigen/Eigen>
+#include <asr_sdm_esdf_map/edt_environment.hpp>
+#include <asr_sdm_esdf_map/esdf_map.hpp>
+#include <asr_sdm_esdf_map/obj_predictor.hpp>
+#include <asr_sdm_planning_manager/msg/bspline.hpp>
+#include <rclcpp/rclcpp.hpp>
+
+#include <nav_msgs/msg/odometry.hpp>
+#include <nav_msgs/msg/path.hpp>
+#include <std_msgs/msg/empty.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+
+#include <asr_sdm_planning_manager/planner_manager.h>
+#include <asr_sdm_trajectory_optimizer/bspline_optimizer.h>
+#include <asr_sdm_trajectory_visualizer/planning_visualization.h>
+
 #include <algorithm>
 #include <iostream>
 #include <memory>
-#include <nav_msgs/msg/path.hpp>
-#include <nav_msgs/msg/odometry.hpp>
-#include <rclcpp/rclcpp.hpp>
-#include <std_msgs/msg/empty.hpp>
 #include <vector>
-#include <visualization_msgs/msg/marker.hpp>
-
-#include <asr_sdm_trajectory_optimizer/bspline_optimizer.h>
-#include <asr_sdm_esdf_map/edt_environment.hpp>
-#include <asr_sdm_esdf_map/obj_predictor.hpp>
-#include <asr_sdm_esdf_map/esdf_map.hpp>
-#include <asr_sdm_planning_manager/msg/bspline.hpp>
-#include <asr_sdm_planning_manager/planner_manager.h>
-#include <asr_sdm_trajectory_visualizer/planning_visualization.h>
 
 using std::vector;
 
-namespace fast_planner {
+namespace fast_planner
+{
 
-class TopoReplanFSM {
+class TopoReplanFSM
+{
 private:
   /* ---------- flag ---------- */
   enum FSM_EXEC_STATE { INIT, WAIT_TARGET, GEN_NEW_TRAJ, REPLAN_TRAJ, EXEC_TRAJ, REPLAN_NEW };
@@ -102,7 +104,7 @@ public:
   TopoReplanFSM(/* args */) {}
   ~TopoReplanFSM() {}
 
-  void init(const std::shared_ptr<rclcpp::Node>& nh);
+  void init(const std::shared_ptr<rclcpp::Node> & nh);
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };

@@ -1,42 +1,44 @@
 /**
-* This file is part of Fast-Planner.
-*
-* Copyright 2019 Boyu Zhou, Aerial Robotics Group, Hong Kong University of Science and Technology, <uav.ust.hk>
-* Developed by Boyu Zhou <bzhouai at connect dot ust dot hk>, <uv dot boyuzhou at gmail dot com>
-* for more information see <https://github.com/HKUST-Aerial-Robotics/Fast-Planner>.
-* If you use this code, please cite the respective publications as
-* listed on the above website.
-*
-* Fast-Planner is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Lesser General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* Fast-Planner is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU Lesser General Public License
-* along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
-*/
-
-
+ * This file is part of Fast-Planner.
+ *
+ * Copyright 2019 Boyu Zhou, Aerial Robotics Group, Hong Kong University of Science and Technology,
+ * <uav.ust.hk> Developed by Boyu Zhou <bzhouai at connect dot ust dot hk>, <uv dot boyuzhou at
+ * gmail dot com> for more information see <https://github.com/HKUST-Aerial-Robotics/Fast-Planner>.
+ * If you use this code, please cite the respective publications as
+ * listed on the above website.
+ *
+ * Fast-Planner is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Fast-Planner is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include <asr_sdm_local_path_modifier/astar.h>
+
 #include <sstream>
 
 using namespace std;
 using namespace Eigen;
 
-namespace fast_planner {
-Astar::~Astar() {
+namespace fast_planner
+{
+Astar::~Astar()
+{
   for (int i = 0; i < allocate_num_; i++) {
     delete path_node_pool_[i];
   }
 }
 
-int Astar::search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt, bool dynamic, double time_start) {
+int Astar::search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt, bool dynamic, double time_start)
+{
   /* ---------- initialize ---------- */
   NodePtr cur_node = path_node_pool_[0];
   cur_node->parent = NULL;
@@ -81,7 +83,8 @@ int Astar::search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt, bool dynamic
     /* ---------- determine termination ---------- */
 
     bool reach_end = abs(cur_node->index(0) - end_index(0)) <= 1 &&
-        abs(cur_node->index(1) - end_index(1)) <= 1 && abs(cur_node->index(2) - end_index(2)) <= 1;
+                     abs(cur_node->index(1) - end_index(1)) <= 1 &&
+                     abs(cur_node->index(2) - end_index(2)) <= 1;
 
     if (reach_end) {
       // cout << "[Astar]:---------------------- " << use_node_num_ << endl;
@@ -120,9 +123,10 @@ int Astar::search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt, bool dynamic
 
           /* ---------- check if in feasible space ---------- */
           /* inside map range */
-          if (pro_pos(0) <= origin_(0) || pro_pos(0) >= map_size_3d_(0) || pro_pos(1) <= origin_(1) ||
-              pro_pos(1) >= map_size_3d_(1) || pro_pos(2) <= origin_(2) ||
-              pro_pos(2) >= map_size_3d_(2)) {
+          if (
+            pro_pos(0) <= origin_(0) || pro_pos(0) >= map_size_3d_(0) || pro_pos(1) <= origin_(1) ||
+            pro_pos(1) >= map_size_3d_(1) || pro_pos(2) <= origin_(2) ||
+            pro_pos(2) >= map_size_3d_(2)) {
             // cout << "outside map" << endl;
             continue;
           }
@@ -132,7 +136,7 @@ int Astar::search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt, bool dynamic
           int pro_t_id = timeToIndex(pro_t);
 
           NodePtr pro_node =
-              dynamic ? expanded_nodes_.find(pro_id, pro_t_id) : expanded_nodes_.find(pro_id);
+            dynamic ? expanded_nodes_.find(pro_id, pro_t_id) : expanded_nodes_.find(pro_id);
 
           if (pro_node != NULL && pro_node->node_state == IN_CLOSE_SET) {
             // cout << "in closeset" << endl;
@@ -202,7 +206,8 @@ int Astar::search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt, bool dynamic
   return NO_PATH;
 }
 
-void Astar::setParam(const std::shared_ptr<rclcpp::Node>& nh) {
+void Astar::setParam(const std::shared_ptr<rclcpp::Node> & nh)
+{
   node_ = nh;
   node_->declare_parameter("astar.resolution_astar", -1.0);
   node_->declare_parameter("astar.time_resolution", -1.0);
@@ -219,7 +224,8 @@ void Astar::setParam(const std::shared_ptr<rclcpp::Node>& nh) {
   cout << "margin:" << margin_ << endl;
 }
 
-void Astar::retrievePath(NodePtr end_node) {
+void Astar::retrievePath(NodePtr end_node)
+{
   NodePtr cur_node = end_node;
   path_nodes_.push_back(cur_node);
 
@@ -231,7 +237,8 @@ void Astar::retrievePath(NodePtr end_node) {
   reverse(path_nodes_.begin(), path_nodes_.end());
 }
 
-std::vector<Eigen::Vector3d> Astar::getPath() {
+std::vector<Eigen::Vector3d> Astar::getPath()
+{
   vector<Eigen::Vector3d> path;
   for (int i = 0; i < path_nodes_.size(); ++i) {
     path.push_back(path_nodes_[i]->position);
@@ -239,7 +246,8 @@ std::vector<Eigen::Vector3d> Astar::getPath() {
   return path;
 }
 
-double Astar::getDiagHeu(Eigen::Vector3d x1, Eigen::Vector3d x2) {
+double Astar::getDiagHeu(Eigen::Vector3d x1, Eigen::Vector3d x2)
+{
   double dx = fabs(x1(0) - x2(0));
   double dy = fabs(x1(1) - x2(1));
   double dz = fabs(x1(2) - x2(2));
@@ -262,7 +270,8 @@ double Astar::getDiagHeu(Eigen::Vector3d x1, Eigen::Vector3d x2) {
   return tie_breaker_ * h;
 }
 
-double Astar::getManhHeu(Eigen::Vector3d x1, Eigen::Vector3d x2) {
+double Astar::getManhHeu(Eigen::Vector3d x1, Eigen::Vector3d x2)
+{
   double dx = fabs(x1(0) - x2(0));
   double dy = fabs(x1(1) - x2(1));
   double dz = fabs(x1(2) - x2(2));
@@ -270,11 +279,13 @@ double Astar::getManhHeu(Eigen::Vector3d x1, Eigen::Vector3d x2) {
   return tie_breaker_ * (dx + dy + dz);
 }
 
-double Astar::getEuclHeu(Eigen::Vector3d x1, Eigen::Vector3d x2) {
+double Astar::getEuclHeu(Eigen::Vector3d x1, Eigen::Vector3d x2)
+{
   return tie_breaker_ * (x2 - x1).norm();
 }
 
-void Astar::init() {
+void Astar::init()
+{
   /* ---------- map params ---------- */
   this->inv_resolution_ = 1.0 / resolution_;
   inv_time_resolution_ = 1.0 / time_resolution_;
@@ -293,11 +304,13 @@ void Astar::init() {
   iter_num_ = 0;
 }
 
-void Astar::setEnvironment(const EDTEnvironment::Ptr& env) {
+void Astar::setEnvironment(const EDTEnvironment::Ptr & env)
+{
   this->edt_environment_ = env;
 }
 
-void Astar::reset() {
+void Astar::reset()
+{
   expanded_nodes_.clear();
   path_nodes_.clear();
 
@@ -314,13 +327,15 @@ void Astar::reset() {
   iter_num_ = 0;
 }
 
-std::vector<NodePtr> Astar::getVisitedNodes() {
+std::vector<NodePtr> Astar::getVisitedNodes()
+{
   vector<NodePtr> visited;
   visited.assign(path_node_pool_.begin(), path_node_pool_.begin() + use_node_num_ - 1);
   return visited;
 }
 
-Eigen::Vector3i Astar::posToIndex(Eigen::Vector3d pt) {
+Eigen::Vector3i Astar::posToIndex(Eigen::Vector3d pt)
+{
   Vector3i idx = ((pt - origin_) * inv_resolution_).array().floor().cast<int>();
 
   // idx << floor((pt(0) - origin_(0)) * inv_resolution_), floor((pt(1) -
@@ -330,7 +345,8 @@ Eigen::Vector3i Astar::posToIndex(Eigen::Vector3d pt) {
   return idx;
 }
 
-int Astar::timeToIndex(double time) {
+int Astar::timeToIndex(double time)
+{
   int idx = floor((time - time_origin_) * inv_time_resolution_);
 }
 

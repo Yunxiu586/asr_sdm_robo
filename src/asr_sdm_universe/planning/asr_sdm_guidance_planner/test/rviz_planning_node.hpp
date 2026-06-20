@@ -1,16 +1,16 @@
 #ifndef ASR_SDM_GUIDANCE_PLANNER_NODE_RVIZ_PLANNING_NODE_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_NODE_RVIZ_PLANNING_NODE_HPP_
 
-#include <guidance_planner.hpp>
-#include <voxel_esdf_map.hpp>
-#include <lbfgs_path_optimizer.hpp>
 #include <astar_3d_planner.hpp>
+#include <guidance_planner.hpp>
+#include <lbfgs_path_optimizer.hpp>
+#include <rclcpp/rclcpp.hpp>
 #include <sphere_corridor.hpp>
+#include <voxel_esdf_map.hpp>
 
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav_msgs/msg/path.hpp>
-#include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
@@ -33,11 +33,14 @@ private:
   void occupancyCallback(sensor_msgs::msg::PointCloud2::ConstSharedPtr msg);
   void esdfCallback(sensor_msgs::msg::PointCloud2::ConstSharedPtr msg);
   bool loadBinaryMap();
-  bool loadOccupancyBinary(const std::string & path, pcl::PointCloud<pcl::PointXYZ> & cloud, std::string & status) const;
-  bool loadEsdfBinary(const std::string & path, pcl::PointCloud<pcl::PointXYZI> & cloud, std::string & status) const;
+  bool loadOccupancyBinary(
+    const std::string & path, pcl::PointCloud<pcl::PointXYZ> & cloud, std::string & status) const;
+  bool loadEsdfBinary(
+    const std::string & path, pcl::PointCloud<pcl::PointXYZI> & cloud, std::string & status) const;
   bool updateBoundsFromBinaryFile(
     const std::string & path, const char * expected_magic, uint32_t expected_map_type,
-    uint32_t expected_floats_per_record, Eigen::Vector3d & min_bound, Eigen::Vector3d & max_bound) const;
+    uint32_t expected_floats_per_record, Eigen::Vector3d & min_bound,
+    Eigen::Vector3d & max_bound) const;
   bool resetMapBoundsFromBinaryData(
     const pcl::PointCloud<pcl::PointXYZ> & occupancy_cloud, const std::string & esdf_path);
   std::string expandUserPath(const std::string & path) const;
@@ -51,9 +54,7 @@ private:
   void runPlanning();
   double corridorRequiredClearance() const;
   bool findNearestSafePlanningPoint(
-    const Eigen::Vector3d & seed,
-    const std::string & label,
-    Eigen::Vector3d & safe_point,
+    const Eigen::Vector3d & seed, const std::string & label, Eigen::Vector3d & safe_point,
     std::string & status) const;
 
   Eigen::Vector3d pointMsgToEigen(const geometry_msgs::msg::Point & point) const;
@@ -62,13 +63,8 @@ private:
     const rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr & pub) const;
   void publishLineMarker(
     const std::vector<Eigen::Vector3d> & path,
-    const rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr & pub,
-    int id,
-    double width,
-    float r,
-    float g,
-    float b,
-    float a) const;
+    const rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr & pub, int id, double width,
+    float r, float g, float b, float a) const;
   void publishStartGoalMarker() const;
   void publishCorridorMarkers(const std::vector<CorridorSphere> & spheres);
   void clearCorridorMarkers();

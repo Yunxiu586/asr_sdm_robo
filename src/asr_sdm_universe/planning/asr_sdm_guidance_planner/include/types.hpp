@@ -1,9 +1,8 @@
 #ifndef ASR_SDM_GUIDANCE_PLANNER_COMMON_TYPES_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_COMMON_TYPES_HPP_
 
-#include <map_query_interface.hpp>
-
 #include <Eigen/Core>
+#include <map_query_interface.hpp>
 
 #include <string>
 #include <vector>

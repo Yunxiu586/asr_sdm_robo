@@ -1,6 +1,5 @@
-#include <lbfgs_path_optimizer.hpp>
-
 #include <asr_sdm_lbfgs_solver/lbfgs.hpp>
+#include <lbfgs_path_optimizer.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -13,8 +12,7 @@ namespace asr_sdm_guidance_planner
 namespace
 {
 std::vector<Eigen::Vector3d> unpackPath(
-  const std::vector<double> & x,
-  const std::vector<Eigen::Vector3d> & fixed_path)
+  const std::vector<double> & x, const std::vector<Eigen::Vector3d> & fixed_path)
 {
   std::vector<Eigen::Vector3d> path = fixed_path;
   for (std::size_t i = 1; i + 1 < path.size(); ++i) {
@@ -26,9 +24,7 @@ std::vector<Eigen::Vector3d> unpackPath(
   return path;
 }
 
-void packGradient(
-  const std::vector<Eigen::Vector3d> & grad_points,
-  double * g)
+void packGradient(const std::vector<Eigen::Vector3d> & grad_points, double * g)
 {
   for (std::size_t i = 1; i + 1 < grad_points.size(); ++i) {
     const std::size_t base = 3 * (i - 1);
@@ -56,8 +52,8 @@ std::vector<Eigen::Vector3d> LbfgsPathOptimizer::selectControlPoints(
   reduced.reserve(keep);
   for (int i = 0; i < keep; ++i) {
     const double ratio = static_cast<double>(i) / static_cast<double>(keep - 1);
-    const std::size_t index = static_cast<std::size_t>(
-      std::round(ratio * static_cast<double>(raw_path.size() - 1)));
+    const std::size_t index =
+      static_cast<std::size_t>(std::round(ratio * static_cast<double>(raw_path.size() - 1)));
     reduced.push_back(raw_path[std::min(index, raw_path.size() - 1)]);
   }
   reduced.front() = raw_path.front();
@@ -66,8 +62,7 @@ std::vector<Eigen::Vector3d> LbfgsPathOptimizer::selectControlPoints(
 }
 
 OptimizerResult LbfgsPathOptimizer::optimize(
-  const std::vector<Eigen::Vector3d> & raw_path,
-  const MapQueryInterface & map,
+  const std::vector<Eigen::Vector3d> & raw_path, const MapQueryInterface & map,
   const std::vector<CorridorSphere> * corridor) const
 {
   OptimizerResult result;
@@ -75,7 +70,8 @@ OptimizerResult LbfgsPathOptimizer::optimize(
   if (!options_.enabled) {
     result.success = true;
     result.path = raw_path;
-    result.path_safe = map.pathIsFree(raw_path, options_.validity_check_step, options_.extra_clearance);
+    result.path_safe =
+      map.pathIsFree(raw_path, options_.validity_check_step, options_.extra_clearance);
     result.message = "L-BFGS disabled";
     return result;
   }
@@ -83,7 +79,8 @@ OptimizerResult LbfgsPathOptimizer::optimize(
   if (raw_path.size() < 3) {
     result.success = true;
     result.path = raw_path;
-    result.path_safe = map.pathIsFree(raw_path, options_.validity_check_step, options_.extra_clearance);
+    result.path_safe =
+      map.pathIsFree(raw_path, options_.validity_check_step, options_.extra_clearance);
     result.message = "path has fewer than 3 points; skip optimization";
     return result;
   }
@@ -91,12 +88,14 @@ OptimizerResult LbfgsPathOptimizer::optimize(
   if (!map.hasDistanceField()) {
     result.success = false;
     result.path = raw_path;
-    result.path_safe = map.pathIsFree(raw_path, options_.validity_check_step, options_.extra_clearance);
+    result.path_safe =
+      map.pathIsFree(raw_path, options_.validity_check_step, options_.extra_clearance);
     result.message = "ESDF is not ready; skip optimization";
     return result;
   }
 
-  const std::vector<Eigen::Vector3d> guide_path = (corridor != nullptr) ? raw_path : selectControlPoints(raw_path);
+  const std::vector<Eigen::Vector3d> guide_path =
+    (corridor != nullptr) ? raw_path : selectControlPoints(raw_path);
   const int variable_count = static_cast<int>(3 * (guide_path.size() - 2));
   std::vector<double> x(variable_count, 0.0);
 
@@ -170,24 +169,23 @@ OptimizerResult LbfgsPathOptimizer::optimize(
       }
     }
 
-
-
     if (corridor != nullptr && corridor->size() + 1U == path.size() && corridor_w > 0.0) {
-      const auto add_corridor_penalty = [&, corridor_w](const std::size_t point_index, const CorridorSphere & sphere) {
-        if (!sphere.valid) {
-          return;
-        }
-        const Eigen::Vector3d diff = path[point_index] - sphere.center;
-        const double norm = diff.norm();
-        const double violation = norm - sphere.radius;
-        if (violation <= 0.0) {
-          return;
-        }
-        fx += corridor_w * violation * violation;
-        if (norm > 1.0e-9) {
-          grad_points[point_index] += 2.0 * corridor_w * violation * diff / norm;
-        }
-      };
+      const auto add_corridor_penalty =
+        [&, corridor_w](const std::size_t point_index, const CorridorSphere & sphere) {
+          if (!sphere.valid) {
+            return;
+          }
+          const Eigen::Vector3d diff = path[point_index] - sphere.center;
+          const double norm = diff.norm();
+          const double violation = norm - sphere.radius;
+          if (violation <= 0.0) {
+            return;
+          }
+          fx += corridor_w * violation * violation;
+          if (norm > 1.0e-9) {
+            grad_points[point_index] += 2.0 * corridor_w * violation * diff / norm;
+          }
+        };
 
       for (std::size_t i = 1; i + 1 < path.size(); ++i) {
         add_corridor_penalty(i, (*corridor)[i - 1U]);
@@ -207,14 +205,14 @@ OptimizerResult LbfgsPathOptimizer::optimize(
 
   const auto lbfgs_result = lbfgs::minimize(x, evaluate, nullptr, params);
   result.path = unpackPath(x, guide_path);
-  result.path_safe = map.pathIsFree(result.path, options_.validity_check_step, options_.extra_clearance);
+  result.path_safe =
+    map.pathIsFree(result.path, options_.validity_check_step, options_.extra_clearance);
   result.success = static_cast<bool>(lbfgs_result);
 
   std::ostringstream oss;
-  oss << "L-BFGS status=" << static_cast<int>(lbfgs_result.status)
-      << " (" << lbfgs::strerror(lbfgs_result.status) << ")"
-      << ", fx=" << lbfgs_result.fx
-      << ", iters=" << lbfgs_result.iterations
+  oss << "L-BFGS status=" << static_cast<int>(lbfgs_result.status) << " ("
+      << lbfgs::strerror(lbfgs_result.status) << ")"
+      << ", fx=" << lbfgs_result.fx << ", iters=" << lbfgs_result.iterations
       << ", safe=" << (result.path_safe ? "true" : "false");
   result.message = oss.str();
   return result;

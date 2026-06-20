@@ -95,9 +95,9 @@ void VoxelEsdfMap::integrateEsdfCloud(const pcl::PointCloud<pcl::PointXYZI> & cl
   esdf_input_point_count_ = static_cast<int>(cloud.points.size());
 
   for (const auto & point : cloud.points) {
-    if (!std::isfinite(point.x) || !std::isfinite(point.y) || !std::isfinite(point.z) ||
-        !std::isfinite(point.intensity))
-    {
+    if (
+      !std::isfinite(point.x) || !std::isfinite(point.y) || !std::isfinite(point.z) ||
+      !std::isfinite(point.intensity)) {
       continue;
     }
 
@@ -146,8 +146,8 @@ bool VoxelEsdfMap::worldToIndex(const Eigen::Vector3d & position, GridIndex & in
 
 Eigen::Vector3d VoxelEsdfMap::indexToWorld(const GridIndex & index) const
 {
-  return options_.origin + options_.resolution *
-           (Eigen::Vector3d(index.x, index.y, index.z) + Eigen::Vector3d::Constant(0.5));
+  return options_.origin + options_.resolution * (Eigen::Vector3d(index.x, index.y, index.z) +
+                                                  Eigen::Vector3d::Constant(0.5));
 }
 
 int VoxelEsdfMap::toAddress(const GridIndex & index) const
@@ -203,7 +203,9 @@ bool VoxelEsdfMap::isFree(const GridIndex & index, double extra_clearance) const
   for (int dx = -radius; dx <= radius; ++dx) {
     for (int dy = -radius; dy <= radius; ++dy) {
       for (int dz = -radius; dz <= radius; ++dz) {
-        if (std::sqrt(static_cast<double>(dx * dx + dy * dy + dz * dz)) * options_.resolution > extra_clearance) {
+        if (
+          std::sqrt(static_cast<double>(dx * dx + dy * dy + dz * dz)) * options_.resolution >
+          extra_clearance) {
           continue;
         }
         GridIndex near{index.x + dx, index.y + dy, index.z + dz};
@@ -232,7 +234,8 @@ bool VoxelEsdfMap::isFree(const Eigen::Vector3d & position, double extra_clearan
   return isFree(index, extra_clearance);
 }
 
-bool VoxelEsdfMap::findNearestFree(const GridIndex & seed, int max_radius_voxels, GridIndex & free_index) const
+bool VoxelEsdfMap::findNearestFree(
+  const GridIndex & seed, int max_radius_voxels, GridIndex & free_index) const
 {
   if (isFree(seed)) {
     free_index = seed;

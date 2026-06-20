@@ -24,9 +24,7 @@ void GuidancePlanner::setOptions(const GuidancePlannerOptions & options)
 }
 
 GuidancePlannerResult GuidancePlanner::plan(
-  const MapQueryInterface & map,
-  const Eigen::Vector3d & start,
-  const Eigen::Vector3d & goal)
+  const MapQueryInterface & map, const Eigen::Vector3d & start, const Eigen::Vector3d & goal)
 {
   GuidancePlannerResult result;
   result.requested_start = start;
@@ -35,7 +33,8 @@ GuidancePlannerResult GuidancePlanner::plan(
   result.planning_goal = goal;
 
   if (!map.isReady()) {
-    result.message = "Map is not ready. Load occupancy + ESDF binaries or wait for both map topics first.";
+    result.message =
+      "Map is not ready. Load occupancy + ESDF binaries or wait for both map topics first.";
     return result;
   }
 
@@ -46,7 +45,7 @@ GuidancePlannerResult GuidancePlanner::plan(
   double corridor_time_ms = 0.0;
   double optimizer_time_ms = 0.0;
 
-  const auto makeTimingSummary = [&] (const double total_time_ms) {
+  const auto makeTimingSummary = [&](const double total_time_ms) {
     const double projection_time_ms = start_projection_time_ms + goal_projection_time_ms;
     const double accounted_time_ms =
       projection_time_ms + astar_time_ms + corridor_time_ms + optimizer_time_ms;
@@ -70,7 +69,8 @@ GuidancePlannerResult GuidancePlanner::plan(
       map, start, "start", result.planning_start, result.start_projection_status);
     const auto start_projection_end_time = std::chrono::steady_clock::now();
     start_projection_time_ms = std::chrono::duration<double, std::milli>(
-      start_projection_end_time - start_projection_start_time).count();
+                                 start_projection_end_time - start_projection_start_time)
+                                 .count();
 
     if (!start_projection_success) {
       const auto cycle_end_time = std::chrono::steady_clock::now();
@@ -86,7 +86,8 @@ GuidancePlannerResult GuidancePlanner::plan(
       map, goal, "goal", result.planning_goal, result.goal_projection_status);
     const auto goal_projection_end_time = std::chrono::steady_clock::now();
     goal_projection_time_ms = std::chrono::duration<double, std::milli>(
-      goal_projection_end_time - goal_projection_start_time).count();
+                                goal_projection_end_time - goal_projection_start_time)
+                                .count();
 
     if (!goal_projection_success) {
       const auto cycle_end_time = std::chrono::steady_clock::now();
@@ -104,8 +105,8 @@ GuidancePlannerResult GuidancePlanner::plan(
   const auto astar_start_time = std::chrono::steady_clock::now();
   PlanResult plan = astar_planner_.plan(map, result.planning_start, result.planning_goal);
   const auto astar_end_time = std::chrono::steady_clock::now();
-  astar_time_ms = std::chrono::duration<double, std::milli>(
-    astar_end_time - astar_start_time).count();
+  astar_time_ms =
+    std::chrono::duration<double, std::milli>(astar_end_time - astar_start_time).count();
   result.raw_path = plan.raw_path;
 
   if (!plan.success) {
@@ -123,11 +124,11 @@ GuidancePlannerResult GuidancePlanner::plan(
 
   if (corridor_generator_.options().enabled) {
     const auto corridor_start_time = std::chrono::steady_clock::now();
-    corridor = corridor_generator_.generate(
-      map, plan.raw_path, result.planning_start, result.planning_goal);
+    corridor =
+      corridor_generator_.generate(map, plan.raw_path, result.planning_start, result.planning_goal);
     const auto corridor_end_time = std::chrono::steady_clock::now();
-    corridor_time_ms = std::chrono::duration<double, std::milli>(
-      corridor_end_time - corridor_start_time).count();
+    corridor_time_ms =
+      std::chrono::duration<double, std::milli>(corridor_end_time - corridor_start_time).count();
 
     if (!corridor.success) {
       const auto cycle_end_time = std::chrono::steady_clock::now();
@@ -149,8 +150,8 @@ GuidancePlannerResult GuidancePlanner::plan(
   const auto optimizer_start_time = std::chrono::steady_clock::now();
   OptimizerResult opt = optimizer_.optimize(optimizer_input, map, corridor_ptr);
   const auto optimizer_end_time = std::chrono::steady_clock::now();
-  optimizer_time_ms = std::chrono::duration<double, std::milli>(
-    optimizer_end_time - optimizer_start_time).count();
+  optimizer_time_ms =
+    std::chrono::duration<double, std::milli>(optimizer_end_time - optimizer_start_time).count();
 
   const auto cycle_end_time = std::chrono::steady_clock::now();
   const double total_time_ms =
@@ -192,11 +193,8 @@ double GuidancePlanner::corridorRequiredClearance() const
 }
 
 bool GuidancePlanner::findNearestSafePlanningPoint(
-  const MapQueryInterface & map,
-  const Eigen::Vector3d & seed,
-  const std::string & label,
-  Eigen::Vector3d & safe_point,
-  std::string & status) const
+  const MapQueryInterface & map, const Eigen::Vector3d & seed, const std::string & label,
+  Eigen::Vector3d & safe_point, std::string & status) const
 {
   if (!map.hasDistanceField()) {
     status = "Cannot project " + label + " point: ESDF is not ready.";
@@ -221,8 +219,8 @@ bool GuidancePlanner::findNearestSafePlanningPoint(
 
   const double required_clearance = corridorRequiredClearance();
   const double step_size = std::max(map.resolution(), 1.0e-3);
-  const int max_steps = std::max(
-    1, static_cast<int>(std::ceil(options_.safe_point_search_radius / step_size)));
+  const int max_steps =
+    std::max(1, static_cast<int>(std::ceil(options_.safe_point_search_radius / step_size)));
   const double max_distance = options_.safe_point_search_radius + 0.5 * map.resolution();
   const double min_progress = 1.0e-6;
 
@@ -262,10 +260,10 @@ bool GuidancePlanner::findNearestSafePlanningPoint(
     return std::isfinite(clearance);
   };
 
-  const auto chooseDiscreteGradientNeighbor = [
-    &](const GridIndex & center, const double center_clearance,
-       GridIndex & next_index, double & next_clearance) -> bool
-  {
+  const auto chooseDiscreteGradientNeighbor =
+    [&](
+      const GridIndex & center, const double center_clearance, GridIndex & next_index,
+      double & next_clearance) -> bool {
     bool found = false;
     double best_score = -std::numeric_limits<double>::infinity();
     GridIndex best_index = center;
@@ -318,20 +316,18 @@ bool GuidancePlanner::findNearestSafePlanningPoint(
     if (isSafeIndex(current_index, current_clearance)) {
       safe_point = map.indexToWorld(current_index);
       std::ostringstream oss;
-      oss << "gradient-projected " << label << " from ["
-          << seed.x() << ", " << seed.y() << ", " << seed.z() << "] to ["
-          << safe_point.x() << ", " << safe_point.y() << ", " << safe_point.z()
-          << "], shift=" << (safe_point - seed).norm()
-          << " m, clearance=" << current_clearance
-          << " m, required>=" << required_clearance
-          << ", gradient_steps=" << gradient_steps
-          << ", inspected_points=" << inspected_points;
+      oss << "gradient-projected " << label << " from [" << seed.x() << ", " << seed.y() << ", "
+          << seed.z() << "] to [" << safe_point.x() << ", " << safe_point.y() << ", "
+          << safe_point.z() << "], shift=" << (safe_point - seed).norm()
+          << " m, clearance=" << current_clearance << " m, required>=" << required_clearance
+          << ", gradient_steps=" << gradient_steps << ", inspected_points=" << inspected_points;
       status = oss.str();
       return true;
     }
 
     double usable_current_clearance = 0.0;
-    const bool current_has_finite_esdf = isUsableGradientIndex(current_index, usable_current_clearance);
+    const bool current_has_finite_esdf =
+      isUsableGradientIndex(current_index, usable_current_clearance);
     if (!current_has_finite_esdf) {
       usable_current_clearance = -std::numeric_limits<double>::infinity();
     }
@@ -342,22 +338,22 @@ bool GuidancePlanner::findNearestSafePlanningPoint(
 
     const Eigen::Vector3d current_point = map.indexToWorld(current_index);
     const Eigen::Vector3d gradient = map.gradient(current_point);
-    if (std::isfinite(gradient.x()) && std::isfinite(gradient.y()) && std::isfinite(gradient.z()) &&
-        gradient.norm() > 1.0e-6)
-    {
+    if (
+      std::isfinite(gradient.x()) && std::isfinite(gradient.y()) && std::isfinite(gradient.z()) &&
+      gradient.norm() > 1.0e-6) {
       Eigen::Vector3d proposal = current_point + step_size * gradient.normalized();
       for (int axis = 0; axis < 3; ++axis) {
         proposal(axis) = std::clamp(proposal(axis), lower(axis), upper(axis));
       }
 
       GridIndex proposal_index;
-      if ((proposal - seed).norm() <= max_distance && map.worldToIndex(proposal, proposal_index) &&
-          !(proposal_index == current_index))
-      {
+      if (
+        (proposal - seed).norm() <= max_distance && map.worldToIndex(proposal, proposal_index) &&
+        !(proposal_index == current_index)) {
         double proposal_clearance = 0.0;
-        if (isUsableGradientIndex(proposal_index, proposal_clearance) &&
-            proposal_clearance > usable_current_clearance + min_progress)
-        {
+        if (
+          isUsableGradientIndex(proposal_index, proposal_clearance) &&
+          proposal_clearance > usable_current_clearance + min_progress) {
           next_index = proposal_index;
           next_clearance = proposal_clearance;
           have_next = true;
@@ -366,7 +362,8 @@ bool GuidancePlanner::findNearestSafePlanningPoint(
     }
 
     if (!have_next) {
-      have_next = chooseDiscreteGradientNeighbor(current_index, usable_current_clearance, next_index, next_clearance);
+      have_next = chooseDiscreteGradientNeighbor(
+        current_index, usable_current_clearance, next_index, next_clearance);
     }
 
     if (!have_next || next_index == current_index) {
@@ -381,8 +378,8 @@ bool GuidancePlanner::findNearestSafePlanningPoint(
 
   std::ostringstream oss;
   oss << "Cannot gradient-project " << label << " point to a safe corridor point within "
-      << options_.safe_point_search_radius << " m: required ESDF clearance >= "
-      << required_clearance;
+      << options_.safe_point_search_radius
+      << " m: required ESDF clearance >= " << required_clearance;
   if (std::isfinite(best_seen_clearance)) {
     oss << ", best reached clearance=" << best_seen_clearance
         << " m at shift=" << (best_seen_point - seed).norm() << " m";

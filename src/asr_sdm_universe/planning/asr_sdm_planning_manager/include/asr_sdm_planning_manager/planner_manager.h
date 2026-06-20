@@ -1,64 +1,61 @@
 /**
-* This file is part of Fast-Planner.
-*
-* Copyright 2019 Boyu Zhou, Aerial Robotics Group, Hong Kong University of Science and Technology, <uav.ust.hk>
-* Developed by Boyu Zhou <bzhouai at connect dot ust dot hk>, <uv dot boyuzhou at gmail dot com>
-* for more information see <https://github.com/HKUST-Aerial-Robotics/Fast-Planner>.
-* If you use this code, please cite the respective publications as
-* listed on the above website.
-*
-* Fast-Planner is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Lesser General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* Fast-Planner is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU Lesser General Public License
-* along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
-*/
-
-
+ * This file is part of Fast-Planner.
+ *
+ * Copyright 2019 Boyu Zhou, Aerial Robotics Group, Hong Kong University of Science and Technology,
+ * <uav.ust.hk> Developed by Boyu Zhou <bzhouai at connect dot ust dot hk>, <uv dot boyuzhou at
+ * gmail dot com> for more information see <https://github.com/HKUST-Aerial-Robotics/Fast-Planner>.
+ * If you use this code, please cite the respective publications as
+ * listed on the above website.
+ *
+ * Fast-Planner is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Fast-Planner is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef _PLANNER_MANAGER_H_
 #define _PLANNER_MANAGER_H_
 
-#include <asr_sdm_trajectory_optimizer/bspline_optimizer.h>
-#include <bspline/non_uniform_bspline.h>
+#include <asr_sdm_esdf_map/edt_environment.hpp>
+#include <asr_sdm_planning_manager/plan_container.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 #include <asr_sdm_local_path_modifier/astar.h>
 #include <asr_sdm_local_path_modifier/topo_prm.h>
+#include <asr_sdm_trajectory_optimizer/bspline_optimizer.h>
+#include <bspline/non_uniform_bspline.h>
 
-#include <asr_sdm_esdf_map/edt_environment.hpp>
-
-#include <asr_sdm_planning_manager/plan_container.hpp>
-
-#include <rclcpp/rclcpp.hpp>
-
-namespace fast_planner {
+namespace fast_planner
+{
 
 // Fast Planner Manager
 // Key algorithms of mapping and planning are called
 
-class FastPlannerManager {
+class FastPlannerManager
+{
   // SECTION stable
 public:
   FastPlannerManager();
   ~FastPlannerManager();
 
   /* main planning interface */
-  bool planGlobalTraj(const Eigen::Vector3d& start_pos);
+  bool planGlobalTraj(const Eigen::Vector3d & start_pos);
   bool topoReplan(bool collide);
 
-  void planYaw(const Eigen::Vector3d& start_yaw);
+  void planYaw(const Eigen::Vector3d & start_yaw);
 
-  void initPlanModules(const std::shared_ptr<rclcpp::Node>& nh);
-  void setGlobalWaypoints(vector<Eigen::Vector3d>& waypoints);
+  void initPlanModules(const std::shared_ptr<rclcpp::Node> & nh);
+  void setGlobalWaypoints(vector<Eigen::Vector3d> & waypoints);
 
-  bool checkTrajCollision(double& distance);
+  bool checkTrajCollision(double & distance);
 
   PlanParameters pp_;
   LocalTrajData local_data_;
@@ -81,21 +78,23 @@ private:
 
   // topology guided optimization
 
-  void findCollisionRange(vector<Eigen::Vector3d>& colli_start, vector<Eigen::Vector3d>& colli_end,
-                          vector<Eigen::Vector3d>& start_pts, vector<Eigen::Vector3d>& end_pts);
+  void findCollisionRange(
+    vector<Eigen::Vector3d> & colli_start, vector<Eigen::Vector3d> & colli_end,
+    vector<Eigen::Vector3d> & start_pts, vector<Eigen::Vector3d> & end_pts);
 
-  void optimizeTopoBspline(double start_t, double duration, vector<Eigen::Vector3d> guide_path,
-                           int traj_id);
-  Eigen::MatrixXd reparamLocalTraj(double start_t, double& dt, double& duration);
-  Eigen::MatrixXd reparamLocalTraj(double start_t, double duration, int seg_num, double& dt);
+  void optimizeTopoBspline(
+    double start_t, double duration, vector<Eigen::Vector3d> guide_path, int traj_id);
+  Eigen::MatrixXd reparamLocalTraj(double start_t, double & dt, double & duration);
+  Eigen::MatrixXd reparamLocalTraj(double start_t, double duration, int seg_num, double & dt);
 
-  void selectBestTraj(NonUniformBspline& traj);
-  void refineTraj(NonUniformBspline& best_traj, double& time_inc);
-  void reparamBspline(NonUniformBspline& bspline, double ratio, Eigen::MatrixXd& ctrl_pts, double& dt,
-                      double& time_inc);
+  void selectBestTraj(NonUniformBspline & traj);
+  void refineTraj(NonUniformBspline & best_traj, double & time_inc);
+  void reparamBspline(
+    NonUniformBspline & bspline, double ratio, Eigen::MatrixXd & ctrl_pts, double & dt,
+    double & time_inc);
 
   // heading planning
-  void calcNextYaw(const double& last_yaw, double& yaw);
+  void calcNextYaw(const double & last_yaw, double & yaw);
 
   // !SECTION stable
 

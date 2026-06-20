@@ -1,12 +1,11 @@
 #ifndef ASR_SDM_GUIDANCE_PLANNER_GUIDANCE_PLANNER_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_GUIDANCE_PLANNER_HPP_
 
+#include <Eigen/Core>
 #include <astar_3d_planner.hpp>
 #include <lbfgs_path_optimizer.hpp>
 #include <sphere_corridor.hpp>
 #include <voxel_esdf_map.hpp>
-
-#include <Eigen/Core>
 
 #include <string>
 #include <vector>
@@ -57,19 +56,14 @@ public:
   const GuidancePlannerOptions & options() const { return options_; }
 
   GuidancePlannerResult plan(
-    const MapQueryInterface & map,
-    const Eigen::Vector3d & start,
-    const Eigen::Vector3d & goal);
+    const MapQueryInterface & map, const Eigen::Vector3d & start, const Eigen::Vector3d & goal);
 
 private:
   double corridorRequiredClearance() const;
 
   bool findNearestSafePlanningPoint(
-    const MapQueryInterface & map,
-    const Eigen::Vector3d & seed,
-    const std::string & label,
-    Eigen::Vector3d & safe_point,
-    std::string & status) const;
+    const MapQueryInterface & map, const Eigen::Vector3d & seed, const std::string & label,
+    Eigen::Vector3d & safe_point, std::string & status) const;
 
   GuidancePlannerOptions options_;
   Astar3dPlanner astar_planner_;

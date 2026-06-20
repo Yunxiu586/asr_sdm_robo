@@ -26,8 +26,7 @@ public:
   const Astar3dOptions & options() const { return options_; }
 
   PlanResult plan(
-    const MapQueryInterface & map,
-    const Eigen::Vector3d & start,
+    const MapQueryInterface & map, const Eigen::Vector3d & start,
     const Eigen::Vector3d & goal) override;
 
 private:

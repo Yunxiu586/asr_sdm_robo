@@ -1,9 +1,8 @@
 #ifndef ASR_SDM_GUIDANCE_PLANNER_OPTIMIZER_LBFGS_PATH_OPTIMIZER_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_OPTIMIZER_LBFGS_PATH_OPTIMIZER_HPP_
 
-#include <sphere_corridor.hpp>
-
 #include <Eigen/Core>
+#include <sphere_corridor.hpp>
 
 #include <string>
 #include <vector>
@@ -38,20 +37,21 @@ struct OptimizerResult
 class LbfgsPathOptimizer
 {
 public:
-  explicit LbfgsPathOptimizer(const LbfgsPathOptimizerOptions & options = LbfgsPathOptimizerOptions());
+  explicit LbfgsPathOptimizer(
+    const LbfgsPathOptimizerOptions & options = LbfgsPathOptimizerOptions());
 
   void setOptions(const LbfgsPathOptimizerOptions & options) { options_ = options; }
   const LbfgsPathOptimizerOptions & options() const { return options_; }
 
   OptimizerResult optimize(
-    const std::vector<Eigen::Vector3d> & raw_path,
-    const MapQueryInterface & map,
+    const std::vector<Eigen::Vector3d> & raw_path, const MapQueryInterface & map,
     const std::vector<CorridorSphere> * corridor = nullptr) const;
 
 private:
   LbfgsPathOptimizerOptions options_;
 
-  std::vector<Eigen::Vector3d> selectControlPoints(const std::vector<Eigen::Vector3d> & raw_path) const;
+  std::vector<Eigen::Vector3d> selectControlPoints(
+    const std::vector<Eigen::Vector3d> & raw_path) const;
 };
 
 }  // namespace asr_sdm_guidance_planner

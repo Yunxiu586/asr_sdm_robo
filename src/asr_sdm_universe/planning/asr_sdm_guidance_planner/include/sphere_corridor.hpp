@@ -1,9 +1,8 @@
 #ifndef ASR_SDM_GUIDANCE_PLANNER_PLANNER_SPHERE_CORRIDOR_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_PLANNER_SPHERE_CORRIDOR_HPP_
 
-#include <types.hpp>
-
 #include <Eigen/Core>
+#include <types.hpp>
 
 #include <cstdint>
 #include <random>
@@ -63,12 +62,11 @@ public:
   const SphereCorridorOptions & options() const { return options_; }
 
   SphereCorridorResult generate(
-    const MapQueryInterface & map,
-    const std::vector<Eigen::Vector3d> & guide_path,
-    const Eigen::Vector3d & start,
-    const Eigen::Vector3d & goal);
+    const MapQueryInterface & map, const std::vector<Eigen::Vector3d> & guide_path,
+    const Eigen::Vector3d & start, const Eigen::Vector3d & goal);
 
-  CorridorSphere generateOneSphere(const MapQueryInterface & map, const Eigen::Vector3d & center) const;
+  CorridorSphere generateOneSphere(
+    const MapQueryInterface & map, const Eigen::Vector3d & center) const;
   static double sphereVolume(double radius);
   static double overlapVolume(const CorridorSphere & a, const CorridorSphere & b);
 
@@ -77,18 +75,15 @@ private:
   std::mt19937 rng_;
 
   CorridorSphere batchSample(
-    const MapQueryInterface & map,
-    const Eigen::Vector3d & guide_point,
+    const MapQueryInterface & map, const Eigen::Vector3d & guide_point,
     const CorridorSphere & last_sphere);
 
   std::size_t getForwardPointOnPath(
-    const std::vector<Eigen::Vector3d> & guide_path,
-    const CorridorSphere & current_sphere,
+    const std::vector<Eigen::Vector3d> & guide_path, const CorridorSphere & current_sphere,
     std::size_t start_index) const;
 
   std::vector<Eigen::Vector3d> initializeWaypoints(
-    const std::vector<CorridorSphere> & spheres,
-    const Eigen::Vector3d & start,
+    const std::vector<CorridorSphere> & spheres, const Eigen::Vector3d & start,
     const Eigen::Vector3d & goal) const;
 
   Eigen::Vector3d overlapCenter(const CorridorSphere & a, const CorridorSphere & b) const;

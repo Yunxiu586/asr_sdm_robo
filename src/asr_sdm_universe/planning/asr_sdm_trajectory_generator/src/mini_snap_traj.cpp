@@ -1,34 +1,34 @@
 /**
-* This file is part of Fast-Planner.
-*
-* Copyright 2019 Boyu Zhou, Aerial Robotics Group, Hong Kong University of Science and Technology, <uav.ust.hk>
-* Developed by Boyu Zhou <bzhouai at connect dot ust dot hk>, <uv dot boyuzhou at gmail dot com>
-* for more information see <https://github.com/HKUST-Aerial-Robotics/Fast-Planner>.
-* If you use this code, please cite the respective publications as
-* listed on the above website.
-*
-* Fast-Planner is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Lesser General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* Fast-Planner is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU Lesser General Public License
-* along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * This file is part of Fast-Planner.
+ *
+ * Copyright 2019 Boyu Zhou, Aerial Robotics Group, Hong Kong University of Science and Technology,
+ * <uav.ust.hk> Developed by Boyu Zhou <bzhouai at connect dot ust dot hk>, <uv dot boyuzhou at
+ * gmail dot com> for more information see <https://github.com/HKUST-Aerial-Robotics/Fast-Planner>.
+ * If you use this code, please cite the respective publications as
+ * listed on the above website.
+ *
+ * Fast-Planner is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Fast-Planner is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
+ */
 
-
-
-#include <iostream>
 #include <asr_sdm_trajectory_generator/mini_snap_traj.h>
 
-PolynomialTraj minSnapTraj(const Eigen::MatrixXd& Pos, const Eigen::Vector3d& start_vel,
-                           const Eigen::Vector3d& end_vel, const Eigen::Vector3d& start_acc,
-                           const Eigen::Vector3d& end_acc, const Eigen::VectorXd& Time) {
+#include <iostream>
+
+PolynomialTraj minSnapTraj(
+  const Eigen::MatrixXd & Pos, const Eigen::Vector3d & start_vel, const Eigen::Vector3d & end_vel,
+  const Eigen::Vector3d & start_acc, const Eigen::Vector3d & end_acc, const Eigen::VectorXd & Time)
+{
   int seg_num = Time.size();
   Eigen::MatrixXd poly_coeff(seg_num, 3 * 6);
   Eigen::VectorXd Px(6 * seg_num), Py(6 * seg_num), Pz(6 * seg_num);
@@ -38,8 +38,7 @@ PolynomialTraj minSnapTraj(const Eigen::MatrixXd& Pos, const Eigen::Vector3d& st
 
   const static auto Factorial = [](int x) {
     int fac = 1;
-    for (int i = x; i > 0; i--)
-      fac = fac * i;
+    for (int i = x; i > 0; i--) fac = fac * i;
     return fac;
   };
 
@@ -133,7 +132,7 @@ PolynomialTraj minSnapTraj(const Eigen::MatrixXd& Pos, const Eigen::Vector3d& st
     for (int i = 3; i < 6; i++) {
       for (int j = 3; j < 6; j++) {
         Q(k * 6 + i, k * 6 + j) =
-            i * (i - 1) * (i - 2) * j * (j - 1) * (j - 2) / (i + j - 5) * pow(Time(k), (i + j - 5));
+          i * (i - 1) * (i - 2) * j * (j - 1) * (j - 2) / (i + j - 5) * pow(Time(k), (i + j - 5));
       }
     }
   }
@@ -195,8 +194,9 @@ PolynomialTraj minSnapTraj(const Eigen::MatrixXd& Pos, const Eigen::Vector3d& st
   return poly_traj;
 }
 
-PolynomialTraj fastLine4deg(Eigen::Vector3d start, Eigen::Vector3d end, double max_vel, double max_acc,
-                            double max_jerk) {
+PolynomialTraj fastLine4deg(
+  Eigen::Vector3d start, Eigen::Vector3d end, double max_vel, double max_acc, double max_jerk)
+{
   Eigen::Vector3d disp = end - start;
   double len = disp.norm();
   Eigen::Vector3d dir = disp.normalized();
@@ -214,8 +214,7 @@ PolynomialTraj fastLine4deg(Eigen::Vector3d start, Eigen::Vector3d end, double m
 
   PolynomialTraj poly_traj;
   vector<double> cx(6), cy(6), cz(6), zero(6);
-  for (int i = 0; i < 6; ++i)
-    zero[i] = 0.0;
+  for (int i = 0; i < 6; ++i) zero[i] = 0.0;
 
   Eigen::Vector3d p0 = start;
   Eigen::Vector3d v0 = Eigen::Vector3d::Zero();
@@ -409,7 +408,9 @@ PolynomialTraj fastLine4deg(Eigen::Vector3d start, Eigen::Vector3d end, double m
   return poly_traj;
 }
 
-PolynomialTraj fastLine3deg(Eigen::Vector3d start, Eigen::Vector3d end, double max_vel, double max_acc) {
+PolynomialTraj fastLine3deg(
+  Eigen::Vector3d start, Eigen::Vector3d end, double max_vel, double max_acc)
+{
   Eigen::Vector3d disp = end - start;
   double len = disp.norm();
   Eigen::Vector3d dir = disp.normalized();
@@ -434,8 +435,7 @@ PolynomialTraj fastLine3deg(Eigen::Vector3d start, Eigen::Vector3d end, double m
   // 3 segments of traj
   PolynomialTraj poly_traj;
   vector<double> cx(6), cy(6), cz(6), zero(6);
-  for (int i = 0; i < 6; ++i)
-    zero[i] = 0.0;
+  for (int i = 0; i < 6; ++i) zero[i] = 0.0;
 
   // head segment
   cx = cy = cz = zero;

@@ -1,9 +1,8 @@
 #ifndef ASR_SDM_GUIDANCE_PLANNER_PLANNER_PLANNER_BASE_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_PLANNER_PLANNER_BASE_HPP_
 
-#include <types.hpp>
-
 #include <Eigen/Core>
+#include <types.hpp>
 
 namespace asr_sdm_guidance_planner
 {
@@ -14,9 +13,7 @@ public:
   virtual ~PlannerBase() = default;
 
   virtual PlanResult plan(
-    const MapQueryInterface & map,
-    const Eigen::Vector3d & start,
-    const Eigen::Vector3d & goal) = 0;
+    const MapQueryInterface & map, const Eigen::Vector3d & start, const Eigen::Vector3d & goal) = 0;
 };
 
 }  // namespace asr_sdm_guidance_planner
