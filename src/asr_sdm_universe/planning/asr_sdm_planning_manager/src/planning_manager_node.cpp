@@ -45,7 +45,9 @@ namespace fast_planner {
 
 FastPlannerManager::FastPlannerManager() {}
 
-FastPlannerManager::~FastPlannerManager() { std::cout << "des manager" << std::endl; }
+FastPlannerManager::~FastPlannerManager() {
+  RCLCPP_INFO(rclcpp::get_logger("FastPlannerManager"), "des manager");
+}
 
 void FastPlannerManager::initPlanModules(const std::shared_ptr<rclcpp::Node>& nh) {
   node_ = nh;
@@ -145,7 +147,7 @@ bool FastPlannerManager::planGlobalTraj(const Eigen::Vector3d& start_pos) {
   // generate global reference trajectory
 
   vector<Eigen::Vector3d> points = plan_data_.global_waypoints_;
-  if (points.size() == 0) std::cout << "no global waypoints!" << std::endl;
+  if (points.size() == 0) RCLCPP_WARN(node_->get_logger(), "no global waypoints!");
 
   points.insert(points.begin(), start_pos);
 
@@ -273,7 +275,7 @@ bool FastPlannerManager::topoReplan(bool collide) {
       for (int i = 0; i < select_paths.size(); ++i) optimize_threads[i].join();
 
       double t_opt = (node_->now() - t1).seconds();
-      cout << "[planner]: optimization time: " << t_opt << endl;
+      RCLCPP_INFO_STREAM(node_->get_logger(), "[planner]: optimization time: " << t_opt);
       selectBestTraj(best_traj);
       refineTraj(best_traj, time_inc);
 
@@ -306,7 +308,7 @@ void FastPlannerManager::refineTraj(NonUniformBspline& best_traj, double& time_i
 
   best_traj.setPhysicalLimits(pp_.max_vel_, pp_.max_acc_);
   double ratio = best_traj.checkRatio();
-  std::cout << "ratio: " << ratio << std::endl;
+  RCLCPP_INFO_STREAM(node_->get_logger(), "ratio: " << ratio);
   reparamBspline(best_traj, ratio, ctrl_pts, dt, t_inc);
   time_inc += t_inc;
 
@@ -563,7 +565,7 @@ void FastPlannerManager::planYaw(const Eigen::Vector3d& start_yaw) {
   plan_data_.dt_yaw_      = dt_yaw;
   plan_data_.dt_yaw_path_ = dt_yaw;
 
-  std::cout << "plan heading: " << (node_->now() - t1).seconds() << std::endl;
+  RCLCPP_INFO_STREAM(node_->get_logger(), "plan heading: " << (node_->now() - t1).seconds());
 }
 
 void FastPlannerManager::calcNextYaw(const double& last_yaw, double& yaw) {

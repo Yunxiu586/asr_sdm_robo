@@ -240,7 +240,7 @@ void cmdCallback() {
     pos_f = pos;
 
   } else {
-    cout << "[Traj server]: invalid time." << endl;
+    RCLCPP_WARN(g_node->get_logger(), "[Traj server]: invalid time.");
   }
 
   cmd.header.stamp = time_now;
