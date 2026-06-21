@@ -48,7 +48,7 @@ private:
   std::shared_ptr<rclcpp::Node> node_;
 
   /* main planning algorithms & modules */
-  SDFMap::Ptr sdf_map_;
+  ESDFMap::Ptr esdf_map_;
 
   unique_ptr<Astar> geo_path_finder_;
   unique_ptr<TopologyPRM> topo_prm_;

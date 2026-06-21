@@ -88,7 +88,7 @@ Visualization Manager:
           Size (Pixels): 3
           Size (m): 0.100000001
           Style: Flat Squares
-          Topic: /sdf_map/occupancy_inflate
+          Topic: /esdf_map/occupancy_inflate
           Unreliable: false
           Use Fixed Frame: true
           Use rainbow: true
@@ -118,14 +118,14 @@ Visualization Manager:
           Size (Pixels): 3
           Size (m): 0.100000001
           Style: Flat Squares
-          Topic: /sdf_map/esdf
+          Topic: /esdf_map/esdf
           Unreliable: false
           Use Fixed Frame: true
           Use rainbow: true
           Value: false
         - Class: rviz/Marker
           Enabled: false
-          Marker Topic: /sdf_map/update_range
+          Marker Topic: /esdf_map/update_range
           Name: local_range
           Namespaces:
             {}
@@ -156,7 +156,7 @@ Visualization Manager:
           Size (Pixels): 3
           Size (m): 0.100000001
           Style: Boxes
-          Topic: /sdf_map/depth_cloud
+          Topic: /esdf_map/depth_cloud
           Unreliable: false
           Use Fixed Frame: true
           Use rainbow: true

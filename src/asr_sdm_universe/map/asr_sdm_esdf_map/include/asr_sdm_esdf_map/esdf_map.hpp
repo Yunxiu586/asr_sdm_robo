@@ -23,8 +23,8 @@
 
 
 
-#ifndef _SDF_MAP_HPP_
-#define _SDF_MAP_HPP_
+#ifndef _ESDF_MAP_HPP_
+#define _ESDF_MAP_HPP_
 
 #include <Eigen/Eigen>
 #include <Eigen/StdVector>
@@ -189,10 +189,10 @@ struct MappingData {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
-class SDFMap {
+class ESDFMap {
 public:
-  SDFMap() {}
-  ~SDFMap() {}
+  ESDFMap() {}
+  ~ESDFMap() {}
 
   enum { POSE_STAMPED = 1, ODOMETRY = 2, INVALID_IDX = -10000 };
 
@@ -252,7 +252,7 @@ public:
   Eigen::Vector3d getOrigin();
   int getVoxelNum();
 
-  typedef std::shared_ptr<SDFMap> Ptr;
+  typedef std::shared_ptr<ESDFMap> Ptr;
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
@@ -340,15 +340,15 @@ private:
 /* ============================== definition of inline function
  * ============================== */
 
-inline int SDFMap::toAddress(const Eigen::Vector3i& id) {
+inline int ESDFMap::toAddress(const Eigen::Vector3i& id) {
   return id(0) * mp_.map_voxel_num_(1) * mp_.map_voxel_num_(2) + id(1) * mp_.map_voxel_num_(2) + id(2);
 }
 
-inline int SDFMap::toAddress(const int x, const int y, const int z) {
+inline int ESDFMap::toAddress(const int x, const int y, const int z) {
   return x * mp_.map_voxel_num_(1) * mp_.map_voxel_num_(2) + y * mp_.map_voxel_num_(2) + z;
 }
 
-inline void SDFMap::boundIndex(Eigen::Vector3i& id) {
+inline void ESDFMap::boundIndex(Eigen::Vector3i& id) {
   Eigen::Vector3i id1;
   id1(0) = max(min(id(0), mp_.map_voxel_num_(0) - 1), 0);
   id1(1) = max(min(id(1), mp_.map_voxel_num_(1) - 1), 0);
@@ -356,7 +356,7 @@ inline void SDFMap::boundIndex(Eigen::Vector3i& id) {
   id = id1;
 }
 
-inline double SDFMap::getDistance(const Eigen::Vector3d& pos) {
+inline double ESDFMap::getDistance(const Eigen::Vector3d& pos) {
   Eigen::Vector3i id;
   posToIndex(pos, id);
   boundIndex(id);
@@ -364,25 +364,25 @@ inline double SDFMap::getDistance(const Eigen::Vector3d& pos) {
   return md_.distance_buffer_all_[toAddress(id)];
 }
 
-inline double SDFMap::getDistance(const Eigen::Vector3i& id) {
+inline double ESDFMap::getDistance(const Eigen::Vector3i& id) {
   Eigen::Vector3i id1 = id;
   boundIndex(id1);
   return md_.distance_buffer_all_[toAddress(id1)];
 }
 
-inline bool SDFMap::isUnknown(const Eigen::Vector3i& id) {
+inline bool ESDFMap::isUnknown(const Eigen::Vector3i& id) {
   Eigen::Vector3i id1 = id;
   boundIndex(id1);
   return md_.occupancy_buffer_[toAddress(id1)] < mp_.clamp_min_log_ - 1e-3;
 }
 
-inline bool SDFMap::isUnknown(const Eigen::Vector3d& pos) {
+inline bool ESDFMap::isUnknown(const Eigen::Vector3d& pos) {
   Eigen::Vector3i idc;
   posToIndex(pos, idc);
   return isUnknown(idc);
 }
 
-inline bool SDFMap::isKnownFree(const Eigen::Vector3i& id) {
+inline bool ESDFMap::isKnownFree(const Eigen::Vector3i& id) {
   Eigen::Vector3i id1 = id;
   boundIndex(id1);
   int adr = toAddress(id1);
@@ -392,7 +392,7 @@ inline bool SDFMap::isKnownFree(const Eigen::Vector3i& id) {
   return md_.occupancy_buffer_[adr] >= mp_.clamp_min_log_ && md_.occupancy_buffer_inflate_[adr] == 0;
 }
 
-inline bool SDFMap::isKnownOccupied(const Eigen::Vector3i& id) {
+inline bool ESDFMap::isKnownOccupied(const Eigen::Vector3i& id) {
   Eigen::Vector3i id1 = id;
   boundIndex(id1);
   int adr = toAddress(id1);
@@ -400,7 +400,7 @@ inline bool SDFMap::isKnownOccupied(const Eigen::Vector3i& id) {
   return md_.occupancy_buffer_inflate_[adr] == 1;
 }
 
-inline double SDFMap::getDistWithGradTrilinear(Eigen::Vector3d pos, Eigen::Vector3d& grad) {
+inline double ESDFMap::getDistWithGradTrilinear(Eigen::Vector3d pos, Eigen::Vector3d& grad) {
   if (!isInMap(pos)) {
     grad.setZero();
     return 0;
@@ -447,7 +447,7 @@ inline double SDFMap::getDistWithGradTrilinear(Eigen::Vector3d pos, Eigen::Vecto
   return dist;
 }
 
-inline void SDFMap::setOccupied(Eigen::Vector3d pos) {
+inline void ESDFMap::setOccupied(Eigen::Vector3d pos) {
   if (!isInMap(pos)) return;
 
   Eigen::Vector3i id;
@@ -457,7 +457,7 @@ inline void SDFMap::setOccupied(Eigen::Vector3d pos) {
                                 id(1) * mp_.map_voxel_num_(2) + id(2)] = 1;
 }
 
-inline void SDFMap::setOccupancy(Eigen::Vector3d pos, double occ) {
+inline void ESDFMap::setOccupancy(Eigen::Vector3d pos, double occ) {
   if (occ != 1 && occ != 0) {
     cout << "occ value error!" << endl;
     return;
@@ -471,7 +471,7 @@ inline void SDFMap::setOccupancy(Eigen::Vector3d pos, double occ) {
   md_.occupancy_buffer_[toAddress(id)] = occ;
 }
 
-inline int SDFMap::getOccupancy(Eigen::Vector3d pos) {
+inline int ESDFMap::getOccupancy(Eigen::Vector3d pos) {
   if (!isInMap(pos)) return -1;
 
   Eigen::Vector3i id;
@@ -480,7 +480,7 @@ inline int SDFMap::getOccupancy(Eigen::Vector3d pos) {
   return md_.occupancy_buffer_[toAddress(id)] > mp_.min_occupancy_log_ ? 1 : 0;
 }
 
-inline int SDFMap::getInflateOccupancy(Eigen::Vector3d pos) {
+inline int ESDFMap::getInflateOccupancy(Eigen::Vector3d pos) {
   if (!isInMap(pos)) return -1;
 
   Eigen::Vector3i id;
@@ -489,7 +489,7 @@ inline int SDFMap::getInflateOccupancy(Eigen::Vector3d pos) {
   return int(md_.occupancy_buffer_inflate_[toAddress(id)]);
 }
 
-inline int SDFMap::getOccupancy(Eigen::Vector3i id) {
+inline int ESDFMap::getOccupancy(Eigen::Vector3i id) {
   if (id(0) < 0 || id(0) >= mp_.map_voxel_num_(0) || id(1) < 0 || id(1) >= mp_.map_voxel_num_(1) ||
       id(2) < 0 || id(2) >= mp_.map_voxel_num_(2))
     return -1;
@@ -497,7 +497,7 @@ inline int SDFMap::getOccupancy(Eigen::Vector3i id) {
   return md_.occupancy_buffer_[toAddress(id)] > mp_.min_occupancy_log_ ? 1 : 0;
 }
 
-inline bool SDFMap::isInMap(const Eigen::Vector3d& pos) {
+inline bool ESDFMap::isInMap(const Eigen::Vector3d& pos) {
   if (pos(0) < mp_.map_min_boundary_(0) + 1e-4 || pos(1) < mp_.map_min_boundary_(1) + 1e-4 ||
       pos(2) < mp_.map_min_boundary_(2) + 1e-4) {
     // cout << "less than min range!" << endl;
@@ -510,7 +510,7 @@ inline bool SDFMap::isInMap(const Eigen::Vector3d& pos) {
   return true;
 }
 
-inline bool SDFMap::isInMap(const Eigen::Vector3i& idx) {
+inline bool ESDFMap::isInMap(const Eigen::Vector3i& idx) {
   if (idx(0) < 0 || idx(1) < 0 || idx(2) < 0) {
     return false;
   }
@@ -521,15 +521,15 @@ inline bool SDFMap::isInMap(const Eigen::Vector3i& idx) {
   return true;
 }
 
-inline void SDFMap::posToIndex(const Eigen::Vector3d& pos, Eigen::Vector3i& id) {
+inline void ESDFMap::posToIndex(const Eigen::Vector3d& pos, Eigen::Vector3i& id) {
   for (int i = 0; i < 3; ++i) id(i) = floor((pos(i) - mp_.map_origin_(i)) * mp_.resolution_inv_);
 }
 
-inline void SDFMap::indexToPos(const Eigen::Vector3i& id, Eigen::Vector3d& pos) {
+inline void ESDFMap::indexToPos(const Eigen::Vector3i& id, Eigen::Vector3d& pos) {
   for (int i = 0; i < 3; ++i) pos(i) = (id(i) + 0.5) * mp_.resolution_ + mp_.map_origin_(i);
 }
 
-inline void SDFMap::inflatePoint(const Eigen::Vector3i& pt, int step, vector<Eigen::Vector3i>& pts) {
+inline void ESDFMap::inflatePoint(const Eigen::Vector3i& pt, int step, vector<Eigen::Vector3i>& pts) {
   int num = 0;
 
   /* ---------- + shape inflate ---------- */

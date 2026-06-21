@@ -7,7 +7,7 @@ int main(int argc, char ** argv)
   rclcpp::init(argc, argv);
 
   auto node = std::make_shared<rclcpp::Node>("esdf_map");
-  SDFMap esdf_map;
+  ESDFMap esdf_map;
   esdf_map.initMap(node);
 
   RCLCPP_INFO(node->get_logger(), "esdf_map node started");

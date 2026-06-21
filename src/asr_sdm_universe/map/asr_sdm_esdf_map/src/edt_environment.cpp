@@ -1,50 +1,34 @@
-/**
-* This file is part of Fast-Planner.
-*
-* Copyright 2019 Boyu Zhou, Aerial Robotics Group, Hong Kong University of Science and Technology, <uav.ust.hk>
-* Developed by Boyu Zhou <bzhouai at connect dot ust dot hk>, <uv dot boyuzhou at gmail dot com>
-* for more information see <https://github.com/HKUST-Aerial-Robotics/Fast-Planner>.
-* If you use this code, please cite the respective publications as
-* listed on the above website.
-*
-* Fast-Planner is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Lesser General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* Fast-Planner is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU Lesser General Public License
-* along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
-*/
-
-
+// Copyright (c) Amphibious Robotics.
+// Topological replanning FSM implementation.
 
 #include <asr_sdm_esdf_map/edt_environment.hpp>
 
-namespace amprobo {
+namespace amprobo
+{
 /* ============================== edt_environment ==============================
  */
-void EDTEnvironment::init() {
+void EDTEnvironment::init()
+{
 }
 
-void EDTEnvironment::setMap(shared_ptr<SDFMap> map) {
+void EDTEnvironment::setMap(shared_ptr<ESDFMap> map)
+{
   this->esdf_map_ = map;
   resolution_inv_ = 1 / esdf_map_->getResolution();
 }
 
-void EDTEnvironment::setObjPrediction(ObjPrediction prediction) {
+void EDTEnvironment::setObjPrediction(ObjPrediction prediction)
+{
   this->obj_prediction_ = prediction;
 }
 
-void EDTEnvironment::setObjScale(ObjScale scale) {
+void EDTEnvironment::setObjScale(ObjScale scale)
+{
   this->obj_scale_ = scale;
 }
 
-double EDTEnvironment::distToBox(int idx, const Eigen::Vector3d& pos, const double& time) {
+double EDTEnvironment::distToBox(int idx, const Eigen::Vector3d & pos, const double & time)
+{
   // Eigen::Vector3d pos_box = obj_prediction_->at(idx).evaluate(time);
   Eigen::Vector3d pos_box = obj_prediction_->at(idx).evaluateConstVel(time);
 
@@ -54,14 +38,16 @@ double EDTEnvironment::distToBox(int idx, const Eigen::Vector3d& pos, const doub
   Eigen::Vector3d dist;
 
   for (int i = 0; i < 3; i++) {
-    dist(i) = pos(i) >= box_min(i) && pos(i) <= box_max(i) ? 0.0 : min(fabs(pos(i) - box_min(i)),
-                                                                       fabs(pos(i) - box_max(i)));
+    dist(i) = pos(i) >= box_min(i) && pos(i) <= box_max(i)
+                ? 0.0
+                : min(fabs(pos(i) - box_min(i)), fabs(pos(i) - box_max(i)));
   }
 
   return dist.norm();
 }
 
-double EDTEnvironment::minDistToAllBox(const Eigen::Vector3d& pos, const double& time) {
+double EDTEnvironment::minDistToAllBox(const Eigen::Vector3d & pos, const double & time)
+{
   double dist = 10000000.0;
   for (std::size_t i = 0; i < obj_prediction_->size(); ++i) {
     double di = distToBox(static_cast<int>(i), pos, time);
@@ -71,7 +57,8 @@ double EDTEnvironment::minDistToAllBox(const Eigen::Vector3d& pos, const double&
   return dist;
 }
 
-void EDTEnvironment::getSurroundDistance(Eigen::Vector3d pts[2][2][2], double dists[2][2][2]) {
+void EDTEnvironment::getSurroundDistance(Eigen::Vector3d pts[2][2][2], double dists[2][2][2])
+{
   for (int x = 0; x < 2; x++) {
     for (int y = 0; y < 2; y++) {
       for (int z = 0; z < 2; z++) {
@@ -81,10 +68,9 @@ void EDTEnvironment::getSurroundDistance(Eigen::Vector3d pts[2][2][2], double di
   }
 }
 
-void EDTEnvironment::interpolateTrilinear(double values[2][2][2],
-                                          const Eigen::Vector3d& diff,
-                                          double& value,
-                                          Eigen::Vector3d& grad) {
+void EDTEnvironment::interpolateTrilinear(
+  double values[2][2][2], const Eigen::Vector3d & diff, double & value, Eigen::Vector3d & grad)
+{
   // trilinear interpolation
   double v00 = (1 - diff(0)) * values[0][0][0] + diff(0) * values[1][0][0];
   double v01 = (1 - diff(0)) * values[0][0][1] + diff(0) * values[1][0][1];
@@ -104,9 +90,9 @@ void EDTEnvironment::interpolateTrilinear(double values[2][2][2],
   grad[0] *= resolution_inv_;
 }
 
-void EDTEnvironment::evaluateEDTWithGrad(const Eigen::Vector3d& pos,
-                                         double time, double& dist,
-                                         Eigen::Vector3d& grad) {
+void EDTEnvironment::evaluateEDTWithGrad(
+  const Eigen::Vector3d & pos, double time, double & dist, Eigen::Vector3d & grad)
+{
   Eigen::Vector3d diff;
   Eigen::Vector3d sur_pts[2][2][2];
   esdf_map_->getSurroundPts(pos, sur_pts, diff);
@@ -117,7 +103,8 @@ void EDTEnvironment::evaluateEDTWithGrad(const Eigen::Vector3d& pos,
   interpolateTrilinear(dists, diff, dist, grad);
 }
 
-double EDTEnvironment::evaluateCoarseEDT(Eigen::Vector3d& pos, double time) {
+double EDTEnvironment::evaluateCoarseEDT(Eigen::Vector3d & pos, double time)
+{
   double d1 = esdf_map_->getDistance(pos);
   if (time < 0.0) {
     return d1;

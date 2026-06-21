@@ -61,10 +61,10 @@ void FastPlannerManager::initPlanModules(const std::shared_ptr<rclcpp::Node> & n
   bool use_optimization = node_->get_parameter("manager.use_optimization").as_bool();
 
   local_data_.traj_id_ = 0;
-  sdf_map_.reset(new SDFMap);
-  sdf_map_->initMap(node_);
+  esdf_map_.reset(new ESDFMap);
+  esdf_map_->initMap(node_);
   edt_environment_.reset(new EDTEnvironment);
-  edt_environment_->setMap(sdf_map_);
+  edt_environment_->setMap(esdf_map_);
 
   if (use_geometric_path) {
     geo_path_finder_.reset(new Astar);
