@@ -33,7 +33,7 @@
 #include <asr_sdm_esdf_map/obj_predictor.hpp>
 #include <asr_sdm_esdf_map/esdf_map.hpp>
 
-namespace fast_planner {
+namespace amprobo {
 class EDTEnvironment {
 private:
   /* data */
@@ -68,6 +68,6 @@ public:
   typedef std::shared_ptr<EDTEnvironment> Ptr;
 };
 
-}  // namespace fast_planner
+}  // namespace amprobo
 
 #endif

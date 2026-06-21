@@ -17,7 +17,7 @@
 #include <unordered_map>
 #include <utility>
 
-namespace fast_planner
+namespace amprobo
 {
 // #define REACH_HORIZON 1
 // #define REACH_END 2
@@ -187,6 +187,6 @@ public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
-}  // namespace fast_planner
+}  // namespace amprobo
 
 #endif

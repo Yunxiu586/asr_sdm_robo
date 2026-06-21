@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-namespace asr_sdm_local_path_modifier
+namespace amprobo
 {
 
 class LocalPathModifierTestNode final : public rclcpp::Node
@@ -332,12 +332,12 @@ private:
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr topo_candidate_marker_pub_;
 };
 
-}  // namespace asr_sdm_local_path_modifier
+}  // namespace amprobo
 
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<asr_sdm_local_path_modifier::LocalPathModifierTestNode>());
+  rclcpp::spin(std::make_shared<amprobo::LocalPathModifierTestNode>());
   rclcpp::shutdown();
   return 0;
 }

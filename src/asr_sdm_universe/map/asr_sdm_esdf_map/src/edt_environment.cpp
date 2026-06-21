@@ -25,7 +25,7 @@
 
 #include <asr_sdm_esdf_map/edt_environment.hpp>
 
-namespace fast_planner {
+namespace amprobo {
 /* ============================== edt_environment ==============================
  */
 void EDTEnvironment::init() {
@@ -128,4 +128,4 @@ double EDTEnvironment::evaluateCoarseEDT(Eigen::Vector3d& pos, double time) {
 }
 
 // EDTEnvironment::
-}  // namespace fast_planner
+}  // namespace amprobo

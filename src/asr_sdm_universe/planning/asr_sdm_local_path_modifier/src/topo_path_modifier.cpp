@@ -12,7 +12,7 @@
 #include <unordered_set>
 #include <utility>
 
-namespace asr_sdm_local_path_modifier
+namespace amprobo
 {
 namespace
 {
@@ -58,7 +58,7 @@ TopoModifierResult TopoPathModifier::modify(
 }
 
 TopoModifierResult TopoPathModifier::modify(
-  const std::vector<Eigen::Vector3d> & input_path, const asr_sdm_esdf_map::MapQueryInterface & map)
+  const std::vector<Eigen::Vector3d> & input_path, const MapQueryInterface & map)
 {
   return modify(input_path, makeMapCollisionChecker(map));
 }
@@ -147,7 +147,7 @@ bool TopoPathModifier::pathCollides(
 }
 
 bool TopoPathModifier::pathCollides(
-  const std::vector<Eigen::Vector3d> & path, const asr_sdm_esdf_map::MapQueryInterface & map,
+  const std::vector<Eigen::Vector3d> & path, const MapQueryInterface & map,
   int * first_segment, int * last_segment) const
 {
   return pathCollides(path, makeMapCollisionChecker(map), first_segment, last_segment);
@@ -276,7 +276,7 @@ CollisionChecker TopoPathModifier::makeVirtualObstacleChecker(
 }
 
 CollisionChecker TopoPathModifier::makeMapCollisionChecker(
-  const asr_sdm_esdf_map::MapQueryInterface & map) const
+  const MapQueryInterface & map) const
 {
   CollisionChecker checker;
 
@@ -1341,4 +1341,4 @@ void TopoPathModifier::appendUnique(
   }
 }
 
-}  // namespace asr_sdm_local_path_modifier
+}  // namespace amprobo

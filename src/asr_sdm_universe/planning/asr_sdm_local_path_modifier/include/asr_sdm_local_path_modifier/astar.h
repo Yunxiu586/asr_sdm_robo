@@ -38,7 +38,7 @@
 #include <boost/functional/hash.hpp>
 
 #include <queue>
-namespace fast_planner
+namespace amprobo
 {
 // #define REACH_HORIZON 1
 // #define REACH_END 2
@@ -182,6 +182,6 @@ public:
   typedef shared_ptr<Astar> Ptr;
 };
 
-}  // namespace fast_planner
+}  // namespace amprobo
 
 #endif

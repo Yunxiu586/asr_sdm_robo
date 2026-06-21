@@ -6,7 +6,7 @@
 #include <queue>
 #include <sstream>
 
-namespace asr_sdm_guidance_planner
+namespace amprobo
 {
 
 namespace
@@ -196,4 +196,4 @@ PlanResult Astar3dPlanner::plan(
   return result;
 }
 
-}  // namespace asr_sdm_guidance_planner
+}  // namespace amprobo

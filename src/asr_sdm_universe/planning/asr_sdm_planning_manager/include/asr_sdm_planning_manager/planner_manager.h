@@ -33,7 +33,7 @@
 #include <asr_sdm_trajectory_optimizer/bspline_optimizer.h>
 #include <bspline/non_uniform_bspline.h>
 
-namespace fast_planner
+namespace amprobo
 {
 
 // Fast Planner Manager
@@ -87,10 +87,10 @@ private:
   Eigen::MatrixXd reparamLocalTraj(double start_t, double & dt, double & duration);
   Eigen::MatrixXd reparamLocalTraj(double start_t, double duration, int seg_num, double & dt);
 
-  void selectBestTraj(NonUniformBspline & traj);
-  void refineTraj(NonUniformBspline & best_traj, double & time_inc);
+  void selectBestTraj(fast_planner::NonUniformBspline & traj);
+  void refineTraj(fast_planner::NonUniformBspline & best_traj, double & time_inc);
   void reparamBspline(
-    NonUniformBspline & bspline, double ratio, Eigen::MatrixXd & ctrl_pts, double & dt,
+    fast_planner::NonUniformBspline & bspline, double ratio, Eigen::MatrixXd & ctrl_pts, double & dt,
     double & time_inc);
 
   // heading planning
@@ -105,6 +105,6 @@ public:
 
   // !SECTION
 };
-}  // namespace fast_planner
+}  // namespace amprobo
 
 #endif

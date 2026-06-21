@@ -52,7 +52,7 @@ double vel_gain[3] = {3.4, 3.4, 4.0};
 using fast_planner::NonUniformBspline;
 
 bool receive_traj_ = false;
-vector<NonUniformBspline> traj_;
+vector<fast_planner::NonUniformBspline> traj_;
 double traj_duration_;
 rclcpp::Time start_time_;
 int traj_id_;
@@ -152,7 +152,7 @@ void bsplineCallback(const asr_sdm_planning_manager::msg::Bspline::SharedPtr msg
     pos_pts(i, 2) = msg->pos_pts[i].z;
   }
 
-  NonUniformBspline pos_traj(pos_pts, msg->order, 0.1);
+  fast_planner::NonUniformBspline pos_traj(pos_pts, msg->order, 0.1);
   pos_traj.setKnot(knots);
 
   // parse yaw traj
@@ -162,7 +162,7 @@ void bsplineCallback(const asr_sdm_planning_manager::msg::Bspline::SharedPtr msg
     yaw_pts(i, 0) = msg->yaw_pts[i];
   }
 
-  NonUniformBspline yaw_traj(yaw_pts, msg->order, msg->yaw_dt);
+  fast_planner::NonUniformBspline yaw_traj(yaw_pts, msg->order, msg->yaw_dt);
 
   start_time_ = rclcpp::Time(msg->start_time);
   traj_id_ = msg->traj_id;

@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace asr_sdm_guidance_planner
+namespace amprobo
 {
 
 struct LbfgsPathOptimizerOptions
@@ -54,6 +54,6 @@ private:
     const std::vector<Eigen::Vector3d> & raw_path) const;
 };
 
-}  // namespace asr_sdm_guidance_planner
+}  // namespace amprobo
 
 #endif  // ASR_SDM_GUIDANCE_PLANNER_OPTIMIZER_LBFGS_PATH_OPTIMIZER_HPP_

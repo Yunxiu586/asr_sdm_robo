@@ -4,7 +4,7 @@
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<asr_sdm_guidance_planner::RvizPlanningNode>();
+  auto node = std::make_shared<amprobo::RvizPlanningNode>();
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;

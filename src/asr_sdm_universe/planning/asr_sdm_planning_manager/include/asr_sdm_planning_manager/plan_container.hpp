@@ -35,7 +35,7 @@
 
 using std::vector;
 
-namespace fast_planner
+namespace amprobo
 {
 
 class GlobalTrajData
@@ -43,7 +43,7 @@ class GlobalTrajData
 private:
 public:
   PolynomialTraj global_traj_;
-  vector<NonUniformBspline> local_traj_;
+  vector<fast_planner::NonUniformBspline> local_traj_;
 
   double global_duration_;
   rclcpp::Time global_start_time_;
@@ -71,7 +71,7 @@ public:
     last_time_inc_ = 0.0;
   }
 
-  void setLocalTraj(NonUniformBspline traj, double local_ts, double local_te, double time_inc)
+  void setLocalTraj(fast_planner::NonUniformBspline traj, double local_ts, double local_te, double time_inc)
   {
     local_traj_.resize(3);
     local_traj_[0] = traj;
@@ -217,7 +217,7 @@ struct LocalTrajData
   double duration_;
   rclcpp::Time start_time_;
   Eigen::Vector3d start_pos_;
-  NonUniformBspline position_traj_, velocity_traj_, acceleration_traj_, yaw_traj_, yawdot_traj_,
+  fast_planner::NonUniformBspline position_traj_, velocity_traj_, acceleration_traj_, yaw_traj_, yawdot_traj_,
     yawdotdot_traj_;
 };
 
@@ -230,7 +230,7 @@ public:
   vector<Eigen::Vector3d> global_waypoints_;
 
   // initial trajectory segment
-  NonUniformBspline initial_local_segment_;
+  fast_planner::NonUniformBspline initial_local_segment_;
   vector<Eigen::Vector3d> local_start_end_derivative_;
 
   // topological paths
@@ -240,9 +240,9 @@ public:
   vector<vector<Eigen::Vector3d>> topo_select_paths_;
 
   // multiple topological trajectories
-  vector<NonUniformBspline> topo_traj_pos1_;
-  vector<NonUniformBspline> topo_traj_pos2_;
-  vector<NonUniformBspline> refines_;
+  vector<fast_planner::NonUniformBspline> topo_traj_pos1_;
+  vector<fast_planner::NonUniformBspline> topo_traj_pos2_;
+  vector<fast_planner::NonUniformBspline> refines_;
 
   // visibility constraint
   vector<Eigen::Vector3d> block_pts_;
@@ -275,6 +275,6 @@ public:
   }
 };
 
-}  // namespace fast_planner
+}  // namespace amprobo
 
 #endif

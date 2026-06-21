@@ -4,7 +4,7 @@
 #include <Eigen/Core>
 #include <types.hpp>
 
-namespace asr_sdm_guidance_planner
+namespace amprobo
 {
 
 class PlannerBase
@@ -16,6 +16,6 @@ public:
     const MapQueryInterface & map, const Eigen::Vector3d & start, const Eigen::Vector3d & goal) = 0;
 };
 
-}  // namespace asr_sdm_guidance_planner
+}  // namespace amprobo
 
 #endif  // ASR_SDM_GUIDANCE_PLANNER_PLANNER_PLANNER_BASE_HPP_

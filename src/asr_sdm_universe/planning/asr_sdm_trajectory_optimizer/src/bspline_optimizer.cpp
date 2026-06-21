@@ -26,7 +26,7 @@
 #include <nlopt.h>
 // using namespace std;
 
-namespace fast_planner
+namespace amprobo
 {
 
 const int BsplineOptimizer::SMOOTHNESS = (1 << 0);
@@ -96,14 +96,14 @@ void BsplineOptimizer::setEnvironment(const EDTEnvironment::Ptr & env)
   this->edt_environment_ = env;
 }
 
-void BsplineOptimizer::setMapQuery(const asr_sdm_esdf_map::MapQueryInterface * map)
+void BsplineOptimizer::setMapQuery(const MapQueryInterface * map)
 {
   map_query_holder_.reset();
   map_query_ = map;
 }
 
 void BsplineOptimizer::setMapQuery(
-  const std::shared_ptr<const asr_sdm_esdf_map::MapQueryInterface> & map)
+  const std::shared_ptr<const MapQueryInterface> & map)
 {
   map_query_holder_ = map;
   map_query_ = map_query_holder_.get();
@@ -596,4 +596,4 @@ bool BsplineOptimizer::isQuadratic()
   return false;
 }
 
-}  // namespace fast_planner
+}  // namespace amprobo

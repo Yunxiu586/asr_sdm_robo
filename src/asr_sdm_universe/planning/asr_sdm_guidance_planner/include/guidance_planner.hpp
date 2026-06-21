@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace asr_sdm_guidance_planner
+namespace amprobo
 {
 
 struct GuidancePlannerOptions
@@ -71,6 +71,6 @@ private:
   LbfgsPathOptimizer optimizer_;
 };
 
-}  // namespace asr_sdm_guidance_planner
+}  // namespace amprobo
 
 #endif  // ASR_SDM_GUIDANCE_PLANNER_GUIDANCE_PLANNER_HPP_

@@ -6,7 +6,7 @@
 #include <limits>
 #include <sstream>
 
-namespace asr_sdm_guidance_planner
+namespace amprobo
 {
 
 namespace
@@ -218,4 +218,4 @@ OptimizerResult LbfgsPathOptimizer::optimize(
   return result;
 }
 
-}  // namespace asr_sdm_guidance_planner
+}  // namespace amprobo

@@ -28,7 +28,7 @@
 using namespace std;
 using namespace Eigen;
 
-namespace fast_planner
+namespace amprobo
 {
 Astar::~Astar()
 {
@@ -350,4 +350,4 @@ int Astar::timeToIndex(double time)
   int idx = floor((time - time_origin_) * inv_time_resolution_);
 }
 
-}  // namespace fast_planner
+}  // namespace amprobo

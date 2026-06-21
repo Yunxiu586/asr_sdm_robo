@@ -27,7 +27,7 @@
 
 #include <asr_sdm_esdf_map/obj_predictor.hpp>
 
-namespace fast_planner {
+namespace amprobo {
 /* ============================== obj history_ ============================== */
 
 int ObjHistory::queue_size_;
@@ -230,4 +230,4 @@ void ObjPredictor::predictConstVel() {
   }
 }
 
-}  // namespace fast_planner
+}  // namespace amprobo

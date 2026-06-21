@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-namespace asr_sdm_guidance_planner
+namespace amprobo
 {
 
 class RvizPlanningNode final : public rclcpp::Node
@@ -128,6 +128,6 @@ private:
   rclcpp::TimerBase::SharedPtr occupied_map_timer_;
 };
 
-}  // namespace asr_sdm_guidance_planner
+}  // namespace amprobo
 
 #endif  // ASR_SDM_GUIDANCE_PLANNER_NODE_RVIZ_PLANNING_NODE_HPP_

@@ -7,7 +7,7 @@
 #include <limits>
 #include <sstream>
 
-namespace asr_sdm_guidance_planner
+namespace amprobo
 {
 
 namespace
@@ -332,4 +332,4 @@ SphereCorridorResult SphereCorridorGenerator::generate(
   return result;
 }
 
-}  // namespace asr_sdm_guidance_planner
+}  // namespace amprobo

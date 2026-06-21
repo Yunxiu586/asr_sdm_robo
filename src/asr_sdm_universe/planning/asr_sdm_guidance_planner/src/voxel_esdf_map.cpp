@@ -4,7 +4,7 @@
 #include <cmath>
 #include <limits>
 
-namespace asr_sdm_guidance_planner
+namespace amprobo
 {
 
 namespace
@@ -348,4 +348,4 @@ Eigen::Vector3d VoxelEsdfMap::gradient(const Eigen::Vector3d & position) const
   return grad.normalized();
 }
 
-}  // namespace asr_sdm_guidance_planner
+}  // namespace amprobo

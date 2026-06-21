@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace asr_sdm_guidance_planner
+namespace amprobo
 {
 
 struct CorridorSphere
@@ -89,6 +89,6 @@ private:
   Eigen::Vector3d overlapCenter(const CorridorSphere & a, const CorridorSphere & b) const;
 };
 
-}  // namespace asr_sdm_guidance_planner
+}  // namespace amprobo
 
 #endif  // ASR_SDM_GUIDANCE_PLANNER_PLANNER_SPHERE_CORRIDOR_HPP_

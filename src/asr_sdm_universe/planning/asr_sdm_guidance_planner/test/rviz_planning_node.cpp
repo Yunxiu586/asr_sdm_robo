@@ -21,7 +21,7 @@
 #include <sstream>
 #include <unordered_map>
 
-namespace asr_sdm_guidance_planner
+namespace amprobo
 {
 
 namespace
@@ -1352,4 +1352,4 @@ void RvizPlanningNode::publishStatusText(const std::string &) const
   // points.
 }
 
-}  // namespace asr_sdm_guidance_planner
+}  // namespace amprobo

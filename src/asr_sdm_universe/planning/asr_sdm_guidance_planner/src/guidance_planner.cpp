@@ -6,7 +6,7 @@
 #include <limits>
 #include <sstream>
 
-namespace asr_sdm_guidance_planner
+namespace amprobo
 {
 
 GuidancePlanner::GuidancePlanner(const GuidancePlannerOptions & options)
@@ -390,4 +390,4 @@ bool GuidancePlanner::findNearestSafePlanningPoint(
   return false;
 }
 
-}  // namespace asr_sdm_guidance_planner
+}  // namespace amprobo

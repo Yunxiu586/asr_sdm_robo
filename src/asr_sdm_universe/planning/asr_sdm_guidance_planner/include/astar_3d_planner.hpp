@@ -5,7 +5,7 @@
 
 #include <vector>
 
-namespace asr_sdm_guidance_planner
+namespace amprobo
 {
 
 struct Astar3dOptions
@@ -34,6 +34,6 @@ private:
   std::vector<GridIndex> neighborOffsets() const;
 };
 
-}  // namespace asr_sdm_guidance_planner
+}  // namespace amprobo
 
 #endif  // ASR_SDM_GUIDANCE_PLANNER_PLANNER_ASTAR_3D_PLANNER_HPP_

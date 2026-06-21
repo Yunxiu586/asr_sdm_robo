@@ -7,11 +7,8 @@
 #include <string>
 #include <vector>
 
-namespace asr_sdm_guidance_planner
+namespace amprobo
 {
-
-using GridIndex = asr_sdm_esdf_map::GridIndex;
-using MapQueryInterface = asr_sdm_esdf_map::MapQueryInterface;
 
 struct PlanResult
 {
@@ -20,6 +17,6 @@ struct PlanResult
   std::vector<Eigen::Vector3d> raw_path;
 };
 
-}  // namespace asr_sdm_guidance_planner
+}  // namespace amprobo
 
 #endif  // ASR_SDM_GUIDANCE_PLANNER_COMMON_TYPES_HPP_

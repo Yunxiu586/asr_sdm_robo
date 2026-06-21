@@ -30,7 +30,7 @@
 using namespace std;
 using namespace Eigen;
 
-namespace fast_planner
+namespace amprobo
 {
 KinodynamicAstar::~KinodynamicAstar()
 {
@@ -712,4 +712,4 @@ void KinodynamicAstar::stateTransit(
   state1 = phi_ * state0 + integral;
 }
 
-}  // namespace fast_planner
+}  // namespace amprobo

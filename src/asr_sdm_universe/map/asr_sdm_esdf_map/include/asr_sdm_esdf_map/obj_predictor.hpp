@@ -35,7 +35,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
-namespace fast_planner {
+namespace amprobo {
 class PolynomialPrediction;
 typedef std::shared_ptr<std::vector<PolynomialPrediction>> ObjPrediction;
 typedef std::shared_ptr<std::vector<Eigen::Vector3d>> ObjScale;
@@ -156,6 +156,6 @@ public:
   typedef std::shared_ptr<ObjPredictor> Ptr;
 };
 
-}  // namespace fast_planner
+}  // namespace amprobo
 
 #endif

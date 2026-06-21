@@ -9,7 +9,7 @@
 
 #include <vector>
 
-namespace asr_sdm_guidance_planner
+namespace amprobo
 {
 
 struct VoxelMapOptions
@@ -89,6 +89,6 @@ private:
   std::vector<double> distance_;
 };
 
-}  // namespace asr_sdm_guidance_planner
+}  // namespace amprobo
 
 #endif  // ASR_SDM_GUIDANCE_PLANNER_MAP_VOXEL_ESDF_MAP_HPP_

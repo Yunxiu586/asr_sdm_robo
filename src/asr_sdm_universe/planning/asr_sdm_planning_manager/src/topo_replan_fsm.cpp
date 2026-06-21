@@ -26,7 +26,7 @@
 #include <chrono>
 #include <functional>
 
-namespace fast_planner
+namespace amprobo
 {
 
 void TopoReplanFSM::init(const std::shared_ptr<rclcpp::Node> & nh)
@@ -462,4 +462,4 @@ bool TopoReplanFSM::callTopologicalTraj(int step)
   }
 }
 // TopoReplanFSM::
-}  // namespace fast_planner
+}  // namespace amprobo

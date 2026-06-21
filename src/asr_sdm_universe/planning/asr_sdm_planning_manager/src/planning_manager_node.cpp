@@ -38,7 +38,7 @@ namespace backward
 backward::SignalHandling sh;
 }
 
-namespace fast_planner
+namespace amprobo
 {
 
 // SECTION interfaces for setup and query
@@ -207,7 +207,7 @@ bool FastPlannerManager::planGlobalTraj(const Eigen::Vector3d & start_pos)
 
   double dt, duration;
   Eigen::MatrixXd ctrl_pts = reparamLocalTraj(0.0, dt, duration);
-  NonUniformBspline bspline(ctrl_pts, 3, dt);
+  fast_planner::NonUniformBspline bspline(ctrl_pts, 3, dt);
 
   global_data_.setLocalTraj(bspline, 0.0, duration, 0.0);
   local_data_.position_traj_ = bspline;
@@ -230,7 +230,7 @@ bool FastPlannerManager::topoReplan(bool collide)
   double time_inc = 0.0;
 
   Eigen::MatrixXd ctrl_pts = reparamLocalTraj(t_now, local_traj_dt, local_traj_duration);
-  NonUniformBspline init_traj(ctrl_pts, 3, local_traj_dt);
+  fast_planner::NonUniformBspline init_traj(ctrl_pts, 3, local_traj_dt);
   local_data_.start_time_ = time_now;
 
   if (!collide) {  // simply truncate the segment and do nothing
@@ -249,7 +249,7 @@ bool FastPlannerManager::topoReplan(bool collide)
       global_data_.setLocalTraj(init_traj, t_now, local_traj_duration + t_now, 0.0);
 
     } else {
-      NonUniformBspline best_traj;
+      fast_planner::NonUniformBspline best_traj;
 
       // local segment is in collision, call topological replanning
       /* search topological distinctive paths */
@@ -297,17 +297,17 @@ bool FastPlannerManager::topoReplan(bool collide)
   return true;
 }
 
-void FastPlannerManager::selectBestTraj(NonUniformBspline & traj)
+void FastPlannerManager::selectBestTraj(fast_planner::NonUniformBspline & traj)
 {
   // sort by jerk
-  vector<NonUniformBspline> & trajs = plan_data_.topo_traj_pos2_;
-  sort(trajs.begin(), trajs.end(), [&](NonUniformBspline & tj1, NonUniformBspline & tj2) {
+  vector<fast_planner::NonUniformBspline> & trajs = plan_data_.topo_traj_pos2_;
+  sort(trajs.begin(), trajs.end(), [&](fast_planner::NonUniformBspline & tj1, fast_planner::NonUniformBspline & tj2) {
     return tj1.getJerk() < tj2.getJerk();
   });
   traj = trajs[0];
 }
 
-void FastPlannerManager::refineTraj(NonUniformBspline & best_traj, double & time_inc)
+void FastPlannerManager::refineTraj(fast_planner::NonUniformBspline & best_traj, double & time_inc)
 {
   rclcpp::Time t1 = node_->now();
   time_inc = 0.0;
@@ -325,7 +325,7 @@ void FastPlannerManager::refineTraj(NonUniformBspline & best_traj, double & time
   time_inc += t_inc;
 
   ctrl_pts = bspline_optimizers_[0]->BsplineOptimizeTraj(ctrl_pts, dt, cost_function, 1, 1);
-  best_traj = NonUniformBspline(ctrl_pts, 3, dt);
+  best_traj = fast_planner::NonUniformBspline(ctrl_pts, 3, dt);
   RCLCPP_WARN_STREAM(
     node_->get_logger(),
     "[Refine]: cost " << (node_->now() - t1).seconds() << " seconds, time change is: " << time_inc);
@@ -341,7 +341,7 @@ void FastPlannerManager::updateTrajInfo()
 }
 
 void FastPlannerManager::reparamBspline(
-  NonUniformBspline & bspline, double ratio, Eigen::MatrixXd & ctrl_pts, double & dt,
+  fast_planner::NonUniformBspline & bspline, double ratio, Eigen::MatrixXd & ctrl_pts, double & dt,
   double & time_inc)
 {
   int prev_num = bspline.getControlPoint().rows();
@@ -360,7 +360,7 @@ void FastPlannerManager::reparamBspline(
   for (double time = 0.0; time <= duration + 1e-4; time += dt) {
     point_set.push_back(bspline.evaluateDeBoorT(time));
   }
-  NonUniformBspline::parameterizeToBspline(
+  fast_planner::NonUniformBspline::parameterizeToBspline(
     dt, point_set, plan_data_.local_start_end_derivative_, ctrl_pts);
   // ROS_WARN("prev: %d, new: %d", prev_num, ctrl_pts.rows());
 }
@@ -401,7 +401,7 @@ void FastPlannerManager::optimizeTopoBspline(
   Eigen::MatrixXd opt_ctrl_pts1 = bspline_optimizers_[traj_id]->BsplineOptimizeTraj(
     ctrl_pts, dt, BsplineOptimizer::GUIDE_PHASE, 0, 1);
 
-  plan_data_.topo_traj_pos1_[traj_id] = NonUniformBspline(opt_ctrl_pts1, 3, dt);
+  plan_data_.topo_traj_pos1_[traj_id] = fast_planner::NonUniformBspline(opt_ctrl_pts1, 3, dt);
 
   tm2 = (node_->now() - t1).seconds();
   t1 = node_->now();
@@ -411,7 +411,7 @@ void FastPlannerManager::optimizeTopoBspline(
   Eigen::MatrixXd opt_ctrl_pts2 = bspline_optimizers_[traj_id]->BsplineOptimizeTraj(
     opt_ctrl_pts1, dt, BsplineOptimizer::NORMAL_PHASE, 1, 1);
 
-  plan_data_.topo_traj_pos2_[traj_id] = NonUniformBspline(opt_ctrl_pts2, 3, dt);
+  plan_data_.topo_traj_pos2_[traj_id] = fast_planner::NonUniformBspline(opt_ctrl_pts2, 3, dt);
 
   tm3 = (node_->now() - t1).seconds();
   RCLCPP_INFO(
@@ -431,7 +431,7 @@ Eigen::MatrixXd FastPlannerManager::reparamLocalTraj(double start_t, double & dt
   /* parameterization of B-spline */
 
   Eigen::MatrixXd ctrl_pts;
-  NonUniformBspline::parameterizeToBspline(dt, point_set, start_end_derivative, ctrl_pts);
+  fast_planner::NonUniformBspline::parameterizeToBspline(dt, point_set, start_end_derivative, ctrl_pts);
   plan_data_.local_start_end_derivative_ = start_end_derivative;
   // cout << "ctrl pts:" << ctrl_pts.rows() << endl;
 
@@ -449,7 +449,7 @@ Eigen::MatrixXd FastPlannerManager::reparamLocalTraj(
 
   /* parameterization of B-spline */
   Eigen::MatrixXd ctrl_pts;
-  NonUniformBspline::parameterizeToBspline(dt, point_set, start_end_derivative, ctrl_pts);
+  fast_planner::NonUniformBspline::parameterizeToBspline(dt, point_set, start_end_derivative, ctrl_pts);
   // cout << "ctrl pts:" << ctrl_pts.rows() << endl;
 
   return ctrl_pts;
@@ -461,7 +461,7 @@ void FastPlannerManager::findCollisionRange(
 {
   bool last_safe = true, safe;
   double t_m, t_mp;
-  NonUniformBspline * initial_traj = &plan_data_.initial_local_segment_;
+  fast_planner::NonUniformBspline * initial_traj = &plan_data_.initial_local_segment_;
   initial_traj->getTimeSpan(t_m, t_mp);
 
   /* find range of collision */
@@ -612,16 +612,14 @@ void FastPlannerManager::calcNextYaw(const double & last_yaw, double & yaw)
   }
 }
 
-}  // namespace fast_planner
-
-using namespace fast_planner;
+}  // namespace amprobo
 
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   auto nh = std::make_shared<rclcpp::Node>("planning_manager_node");
 
-  TopoReplanFSM topo_replan;
+  amprobo::TopoReplanFSM topo_replan;
   topo_replan.init(nh);
 
   std::this_thread::sleep_for(std::chrono::seconds(1));

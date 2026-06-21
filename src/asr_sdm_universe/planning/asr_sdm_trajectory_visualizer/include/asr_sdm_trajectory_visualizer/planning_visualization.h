@@ -40,7 +40,7 @@
 #include <vector>
 
 using std::vector;
-namespace fast_planner
+namespace amprobo
 {
 class PlanningVisualization
 {
@@ -107,13 +107,13 @@ public:
 
   // draw a bspline trajectory
   void drawBspline(
-    NonUniformBspline & bspline, double size, const Eigen::Vector4d & color,
+    fast_planner::NonUniformBspline & bspline, double size, const Eigen::Vector4d & color,
     bool show_ctrl_pts = false, double size2 = 0.1,
     const Eigen::Vector4d & color2 = Eigen::Vector4d(1, 1, 0, 1), int id1 = 0, int id2 = 0);
 
   // draw a set of bspline trajectories generated in different phases
-  void drawBsplinesPhase1(vector<NonUniformBspline> & bsplines, double size);
-  void drawBsplinesPhase2(vector<NonUniformBspline> & bsplines, double size);
+  void drawBsplinesPhase1(vector<fast_planner::NonUniformBspline> & bsplines, double size);
+  void drawBsplinesPhase2(vector<fast_planner::NonUniformBspline> & bsplines, double size);
 
   // // draw topological graph and paths
   // void drawTopoGraph(
@@ -133,8 +133,8 @@ public:
   typedef std::shared_ptr<PlanningVisualization> Ptr;
 
   // SECTION developing
-  void drawYawTraj(NonUniformBspline & pos, NonUniformBspline & yaw, const double & dt);
-  void drawYawPath(NonUniformBspline & pos, const vector<double> & yaw, const double & dt);
+  void drawYawTraj(fast_planner::NonUniformBspline & pos, fast_planner::NonUniformBspline & yaw, const double & dt);
+  void drawYawPath(fast_planner::NonUniformBspline & pos, const vector<double> & yaw, const double & dt);
 };
-}  // namespace fast_planner
+}  // namespace amprobo
 #endif

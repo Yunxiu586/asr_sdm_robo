@@ -27,7 +27,7 @@
 
 using std::cout;
 using std::endl;
-namespace fast_planner
+namespace amprobo
 {
 PlanningVisualization::PlanningVisualization(const std::shared_ptr<rclcpp::Node> & nh)
 {
@@ -181,7 +181,7 @@ void PlanningVisualization::displayLineList(
   rclcpp::sleep_for(std::chrono::milliseconds(1));
 }
 
-void PlanningVisualization::drawBsplinesPhase1(vector<NonUniformBspline> & bsplines, double size)
+void PlanningVisualization::drawBsplinesPhase1(vector<fast_planner::NonUniformBspline> & bsplines, double size)
 {
   vector<Eigen::Vector3d> empty;
 
@@ -198,7 +198,7 @@ void PlanningVisualization::drawBsplinesPhase1(vector<NonUniformBspline> & bspli
   }
 }
 
-void PlanningVisualization::drawBsplinesPhase2(vector<NonUniformBspline> & bsplines, double size)
+void PlanningVisualization::drawBsplinesPhase2(vector<fast_planner::NonUniformBspline> & bsplines, double size)
 {
   vector<Eigen::Vector3d> empty;
 
@@ -216,7 +216,7 @@ void PlanningVisualization::drawBsplinesPhase2(vector<NonUniformBspline> & bspli
 }
 
 void PlanningVisualization::drawBspline(
-  NonUniformBspline & bspline, double size, const Eigen::Vector4d & color, bool show_ctrl_pts,
+  fast_planner::NonUniformBspline & bspline, double size, const Eigen::Vector4d & color, bool show_ctrl_pts,
   double size2, const Eigen::Vector4d & color2, int id1, int id2)
 {
   if (bspline.getControlPoint().size() == 0) return;
@@ -377,7 +377,7 @@ void PlanningVisualization::drawPrediction(
 }
 
 void PlanningVisualization::drawYawTraj(
-  NonUniformBspline & pos, NonUniformBspline & yaw, const double & dt)
+  fast_planner::NonUniformBspline & pos, fast_planner::NonUniformBspline & yaw, const double & dt)
 {
   double duration = pos.getTimeSum();
   vector<Eigen::Vector3d> pts1, pts2;
@@ -395,7 +395,7 @@ void PlanningVisualization::drawYawTraj(
 }
 
 void PlanningVisualization::drawYawPath(
-  NonUniformBspline & pos, const vector<double> & yaw, const double & dt)
+  fast_planner::NonUniformBspline & pos, const vector<double> & yaw, const double & dt)
 {
   vector<Eigen::Vector3d> pts1, pts2;
 
@@ -457,4 +457,4 @@ Eigen::Vector4d PlanningVisualization::getColor(double h, double alpha)
   return fcolor;
 }
 // PlanningVisualization::
-}  // namespace fast_planner
+}  // namespace amprobo

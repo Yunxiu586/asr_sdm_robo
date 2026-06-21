@@ -25,7 +25,7 @@
 
 #include <thread>
 
-namespace fast_planner
+namespace amprobo
 {
 TopologyPRM::TopologyPRM(/* args */)
 {
@@ -771,4 +771,4 @@ bool TopologyPRM::triangleVisib(Eigen::Vector3d pt, Eigen::Vector3d p1, Eigen::V
   return true;
 }
 // TopologyPRM::
-}  // namespace fast_planner
+}  // namespace amprobo

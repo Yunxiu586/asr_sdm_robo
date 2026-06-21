@@ -47,7 +47,7 @@
 
 using std::vector;
 
-namespace fast_planner
+namespace amprobo
 {
 
 class TopoReplanFSM
@@ -109,6 +109,6 @@ public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
-}  // namespace fast_planner
+}  // namespace amprobo
 
 #endif

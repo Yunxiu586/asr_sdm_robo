@@ -76,12 +76,12 @@ Manager-side code should call the collision-checker overload instead of dependin
 ```cpp
 #include <topo_path_modifier.hpp>
 
-asr_sdm_local_path_modifier::CollisionChecker checker;
+amprobo::CollisionChecker checker;
 checker.pointInCollision = ...;
 checker.segmentInCollision = ...;
 checker.clearance = ...;
 
-asr_sdm_local_path_modifier::TopoModifierResult result =
+amprobo::TopoModifierResult result =
   modifier.modify(input_path, checker);
 ```
 

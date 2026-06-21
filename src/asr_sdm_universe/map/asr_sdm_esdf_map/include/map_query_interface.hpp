@@ -7,7 +7,7 @@
 #include <cmath>
 #include <vector>
 
-namespace asr_sdm_esdf_map
+namespace amprobo
 {
 
 struct GridIndex
@@ -100,6 +100,6 @@ public:
   }
 };
 
-}  // namespace asr_sdm_esdf_map
+}  // namespace amprobo
 
 #endif  // ASR_SDM_ESDF_MAP_MAP_QUERY_INTERFACE_HPP_

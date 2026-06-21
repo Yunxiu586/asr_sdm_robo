@@ -31,7 +31,7 @@
 #include <memory>
 #include <random>
 
-namespace fast_planner
+namespace amprobo
 {
 
 /* ---------- used for iterating all topo combination ---------- */
@@ -210,6 +210,6 @@ public:
   vector<Eigen::Vector3d> pathToGuidePts(vector<Eigen::Vector3d> & path, int pt_num);
 };
 
-}  // namespace fast_planner
+}  // namespace amprobo
 
 #endif

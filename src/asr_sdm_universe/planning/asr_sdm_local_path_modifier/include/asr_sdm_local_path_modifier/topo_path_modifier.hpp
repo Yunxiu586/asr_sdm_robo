@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace asr_sdm_local_path_modifier
+namespace amprobo
 {
 
 struct VirtualObstacle
@@ -89,14 +89,14 @@ public:
 
   TopoModifierResult modify(
     const std::vector<Eigen::Vector3d> & input_path,
-    const asr_sdm_esdf_map::MapQueryInterface & map);
+    const MapQueryInterface & map);
 
   bool pathCollides(
     const std::vector<Eigen::Vector3d> & path, const CollisionChecker & checker,
     int * first_segment = nullptr, int * last_segment = nullptr) const;
 
   bool pathCollides(
-    const std::vector<Eigen::Vector3d> & path, const asr_sdm_esdf_map::MapQueryInterface & map,
+    const std::vector<Eigen::Vector3d> & path, const MapQueryInterface & map,
     int * first_segment = nullptr, int * last_segment = nullptr) const;
 
   // Test compatibility wrapper: RViz virtual obstacles are converted to CollisionChecker.
@@ -125,7 +125,7 @@ private:
   };
 
   CollisionChecker makeVirtualObstacleChecker(const std::vector<VirtualObstacle> & obstacles) const;
-  CollisionChecker makeMapCollisionChecker(const asr_sdm_esdf_map::MapQueryInterface & map) const;
+  CollisionChecker makeMapCollisionChecker(const MapQueryInterface & map) const;
 
   bool pointInCollision(const Eigen::Vector3d & point, const CollisionChecker & checker) const;
   bool lineVisib(
@@ -236,6 +236,6 @@ private:
   mutable std::mt19937 rng_;
 };
 
-}  // namespace asr_sdm_local_path_modifier
+}  // namespace amprobo
 
 #endif  // TOPO_PATH_MODIFIER_HPP_
