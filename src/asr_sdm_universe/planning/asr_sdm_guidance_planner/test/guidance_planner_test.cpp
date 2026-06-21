@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// Unit tests for the guidance planner.
+
 #include <rclcpp/rclcpp.hpp>
 #include <rviz_planning_node.hpp>
 

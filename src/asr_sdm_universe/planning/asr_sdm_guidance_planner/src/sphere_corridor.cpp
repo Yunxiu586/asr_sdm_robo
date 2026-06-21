@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// Spherical corridor generation implementation.
+
 #include <Eigen/Geometry>
 #include <sphere_corridor.hpp>
 

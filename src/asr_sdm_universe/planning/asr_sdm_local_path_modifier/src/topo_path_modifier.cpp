@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// Topological local path modifier implementation.
+
 #include <Eigen/Geometry>
 #include <asr_sdm_local_path_modifier/topo_path_modifier.hpp>
 

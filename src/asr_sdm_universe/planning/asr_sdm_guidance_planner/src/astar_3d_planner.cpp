@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// 3D A* planner implementation.
+
 #include <astar_3d_planner.hpp>
 
 #include <algorithm>

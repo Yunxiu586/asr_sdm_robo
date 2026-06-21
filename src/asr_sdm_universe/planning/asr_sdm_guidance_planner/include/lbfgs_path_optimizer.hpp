@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// LBFGS path smoothing optimizer interface.
+
 #ifndef ASR_SDM_GUIDANCE_PLANNER_OPTIMIZER_LBFGS_PATH_OPTIMIZER_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_OPTIMIZER_LBFGS_PATH_OPTIMIZER_HPP_
 

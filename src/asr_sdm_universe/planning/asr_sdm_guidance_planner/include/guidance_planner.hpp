@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// High-level guidance path planner interface.
+
 #ifndef ASR_SDM_GUIDANCE_PLANNER_GUIDANCE_PLANNER_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_GUIDANCE_PLANNER_HPP_
 

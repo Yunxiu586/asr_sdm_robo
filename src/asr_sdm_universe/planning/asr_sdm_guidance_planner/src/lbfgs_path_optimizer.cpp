@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// LBFGS path optimizer implementation.
+
 #include <asr_sdm_lbfgs_solver/lbfgs.hpp>
 #include <lbfgs_path_optimizer.hpp>
 

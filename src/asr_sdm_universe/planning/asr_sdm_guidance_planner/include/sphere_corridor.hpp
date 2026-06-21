@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// Spherical corridor generation interface.
+
 #ifndef ASR_SDM_GUIDANCE_PLANNER_PLANNER_SPHERE_CORRIDOR_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_PLANNER_SPHERE_CORRIDOR_HPP_
 

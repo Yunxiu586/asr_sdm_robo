@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// Voxel ESDF map implementation.
+
 #include <voxel_esdf_map.hpp>
 
 #include <algorithm>

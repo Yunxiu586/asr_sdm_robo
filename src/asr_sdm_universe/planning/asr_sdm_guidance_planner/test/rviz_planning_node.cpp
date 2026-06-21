@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// RViz test node implementation for guidance planner.
+
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <rviz_planning_node.hpp>
 

@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// Topological local path modifier interface.
+
 #ifndef TOPO_PATH_MODIFIER_HPP_
 #define TOPO_PATH_MODIFIER_HPP_
 

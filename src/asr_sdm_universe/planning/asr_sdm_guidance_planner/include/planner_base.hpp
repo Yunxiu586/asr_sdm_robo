@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// Base planner interface for guidance planning.
+
 #ifndef ASR_SDM_GUIDANCE_PLANNER_PLANNER_PLANNER_BASE_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_PLANNER_PLANNER_BASE_HPP_
 

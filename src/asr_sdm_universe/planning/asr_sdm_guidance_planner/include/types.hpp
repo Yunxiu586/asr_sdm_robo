@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// Shared guidance planner types.
+
 #ifndef ASR_SDM_GUIDANCE_PLANNER_COMMON_TYPES_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_COMMON_TYPES_HPP_
 

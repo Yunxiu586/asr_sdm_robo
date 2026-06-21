@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// RViz test node for guidance planner visualization.
+
 #ifndef ASR_SDM_GUIDANCE_PLANNER_NODE_RVIZ_PLANNING_NODE_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_NODE_RVIZ_PLANNING_NODE_HPP_
 

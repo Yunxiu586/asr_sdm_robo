@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// Guidance path planner pipeline implementation.
+
 #include <guidance_planner.hpp>
 
 #include <algorithm>

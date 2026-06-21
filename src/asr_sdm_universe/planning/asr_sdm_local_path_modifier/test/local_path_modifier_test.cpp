@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// Interactive test node for the local path modifier.
+
 #include <Eigen/Core>
 #include <asr_sdm_local_path_modifier/topo_path_modifier.hpp>
 #include <rclcpp/rclcpp.hpp>

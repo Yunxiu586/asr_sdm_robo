@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// Kinodynamic A* search interface.
+
 #ifndef _KINODYNAMIC_ASTAR_H
 #define _KINODYNAMIC_ASTAR_H
 

@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// 3D A* planner for guidance paths.
+
 #ifndef ASR_SDM_GUIDANCE_PLANNER_PLANNER_ASTAR_3D_PLANNER_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_PLANNER_ASTAR_3D_PLANNER_HPP_
 

@@ -1,3 +1,6 @@
+// Copyright (c) Amphibious Robotics.
+// Voxel ESDF map query interface.
+
 #ifndef ASR_SDM_GUIDANCE_PLANNER_MAP_VOXEL_ESDF_MAP_HPP_
 #define ASR_SDM_GUIDANCE_PLANNER_MAP_VOXEL_ESDF_MAP_HPP_
 
