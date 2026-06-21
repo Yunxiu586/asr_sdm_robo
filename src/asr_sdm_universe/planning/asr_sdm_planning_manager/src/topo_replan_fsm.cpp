@@ -362,7 +362,6 @@ void TopoReplanFSM::checkCollisionCallback()
         }
 
         visualization_->drawGoal(target_point_, 0.3, Eigen::Vector4d(1, 0, 0, 1.0));
-
       } else {
         // have_target_ = false;
         // cout << "Goal near collision, stop." << endl;
@@ -396,6 +395,7 @@ void TopoReplanFSM::checkCollisionCallback()
 
 bool TopoReplanFSM::callSearchAndOptimization()
 {
+  return false;
 }
 
 bool TopoReplanFSM::callTopologicalTraj(int step)
@@ -446,7 +446,6 @@ bool TopoReplanFSM::callTopologicalTraj(int step)
     bspline_pub_->publish(bspline);
 
     /* visualize new trajectories */
-
     MidPlanData * plan_data = &planner_manager_->plan_data_;
     visualization_->drawPolynomialTraj(
       planner_manager_->global_data_.global_traj_, 0.05, Eigen::Vector4d(0, 0, 0, 1), 0);

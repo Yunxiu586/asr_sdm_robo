@@ -1,8 +1,21 @@
 cmake_minimum_required(VERSION 3.8)
 project(asr_sdm_planning_manager)
 
+# Honor <PackageName>_ROOT / <PACKAGENAME>_ROOT variables so PCL/FLANN config
+# modules stop emitting CMP0074 / CMP0144 developer warnings. The DEFAULT_*
+# variables force the policy into the bundled PCL/FLANN scripts, which otherwise
+# reset newer policies via cmake_policy(VERSION ...).
+if(POLICY CMP0074)
+  cmake_policy(SET CMP0074 NEW)
+  set(CMAKE_POLICY_DEFAULT_CMP0074 NEW)
+endif()
+if(POLICY CMP0144)
+  cmake_policy(SET CMP0144 NEW)
+  set(CMAKE_POLICY_DEFAULT_CMP0144 NEW)
+endif()
+
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3 -g")
