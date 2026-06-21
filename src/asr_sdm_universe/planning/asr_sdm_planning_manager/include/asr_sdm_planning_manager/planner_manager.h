@@ -16,15 +16,15 @@
 namespace amprobo
 {
 
-// Fast Planner Manager
+// Planning Manager
 // Key algorithms of mapping and planning are called
 
-class FastPlannerManager
+class PlanningManager
 {
   // SECTION stable
 public:
-  FastPlannerManager();
-  ~FastPlannerManager();
+  PlanningManager();
+  ~PlanningManager();
 
   /* main planning interface */
   bool planGlobalTraj(const Eigen::Vector3d & start_pos);
@@ -81,7 +81,7 @@ private:
   // SECTION developing
 
 public:
-  typedef unique_ptr<FastPlannerManager> Ptr;
+  typedef unique_ptr<PlanningManager> Ptr;
 
   // !SECTION
 };

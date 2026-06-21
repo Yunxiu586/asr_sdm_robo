@@ -1,8 +1,8 @@
 // Copyright (c) Amphibious Robotics.
 // Topology PRM for diverse path discovery.
 
-#ifndef _TOPO_PRM_H
-#define _TOPO_PRM_H
+#ifndef TOPO_PRM_HPP_
+#define TOPO_PRM_HPP_
 
 #include <asr_sdm_esdf_map/edt_environment.hpp>
 #include <asr_sdm_esdf_map/raycast.hpp>
@@ -42,10 +42,11 @@ public:
     cur_num_ = 0;
 
     combine_num_ = 1;
-    for (int i = 0; i < path_nums_.size(); ++i) {
+    for (size_t i = 0; i < path_nums_.size(); ++i) {
       combine_num_ *= path_nums_[i] > 0 ? path_nums_[i] : 1;
     }
-    std::cout << "[Topo]: merged path num: " << combine_num_ << std::endl;
+    RCLCPP_INFO(
+      rclcpp::get_logger("topo_prm"), "[Topo]: merged path num: %d", combine_num_);
   }
   TopoIterator() {}
   ~TopoIterator() {}

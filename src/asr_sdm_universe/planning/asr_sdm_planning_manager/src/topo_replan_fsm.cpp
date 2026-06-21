@@ -39,8 +39,8 @@ void TopoReplanFSM::init(const std::shared_ptr<rclcpp::Node> & nh)
   }
 
   /* initialize main modules */
-  planner_manager_.reset(new FastPlannerManager);
-  planner_manager_->initPlanModules(node_);
+  planning_manager_.reset(new PlanningManager);
+  planning_manager_->initPlanModules(node_);
   visualization_.reset(new PlanningVisualization(node_));
 
   /* callback */
@@ -95,7 +95,7 @@ void TopoReplanFSM::waypointCallback(const nav_msgs::msg::Path::SharedPtr msg)
     visualization_->drawGoal(target_point_, 0.3, Eigen::Vector4d(1, 0, 0, 1.0));
   }
 
-  planner_manager_->setGlobalWaypoints(global_wp);
+  planning_manager_->setGlobalWaypoints(global_wp);
   end_vel_.setZero();
   have_target_ = true;
   trigger_ = true;
@@ -209,7 +209,7 @@ void TopoReplanFSM::execFSMCallback()
 
     case EXEC_TRAJ: {
       /* determine if need to replan */
-      GlobalTrajData * global_data = &planner_manager_->global_data_;
+      GlobalTrajData * global_data = &planning_manager_->global_data_;
       rclcpp::Time time_now = node_->now();
       double t_cur = (time_now - global_data->global_start_time_).seconds();
 
@@ -219,7 +219,7 @@ void TopoReplanFSM::execFSMCallback()
         return;
 
       } else {
-        LocalTrajData * info = &planner_manager_->local_data_;
+        LocalTrajData * info = &planning_manager_->local_data_;
         Eigen::Vector3d start_pos = info->start_pos_;
         t_cur = (time_now - info->start_time_).seconds();
 
@@ -239,7 +239,7 @@ void TopoReplanFSM::execFSMCallback()
     }
 
     case REPLAN_TRAJ: {
-      LocalTrajData * info = &planner_manager_->local_data_;
+      LocalTrajData * info = &planning_manager_->local_data_;
       rclcpp::Time time_now = node_->now();
       double t_cur = (time_now - info->start_time_).seconds();
 
@@ -261,7 +261,7 @@ void TopoReplanFSM::execFSMCallback()
       break;
     }
     case REPLAN_NEW: {
-      LocalTrajData * info = &planner_manager_->local_data_;
+      LocalTrajData * info = &planning_manager_->local_data_;
       rclcpp::Time time_now = node_->now();
       double t_cur = (time_now - info->start_time_).seconds();
 
@@ -287,15 +287,15 @@ void TopoReplanFSM::execFSMCallback()
 
 void TopoReplanFSM::checkCollisionCallback()
 {
-  LocalTrajData * info = &planner_manager_->local_data_;
+  LocalTrajData * info = &planning_manager_->local_data_;
 
   /* ---------- check goal safety ---------- */
   // if (have_target_)
   if (false) {
-    auto edt_env = planner_manager_->edt_environment_;
+    auto edt_env = planning_manager_->edt_environment_;
 
     double dist =
-      planner_manager_->pp_.dynamic_
+      planning_manager_->pp_.dynamic_
         ? edt_env->evaluateCoarseEDT(target_point_, /* time to program start */ info->duration_)
         : edt_env->evaluateCoarseEDT(target_point_, -1.0);
 
@@ -316,7 +316,7 @@ void TopoReplanFSM::checkCollisionCallback()
             Eigen::Vector3d new_pt(new_x, new_y, new_z);
 
             dist =
-              planner_manager_->pp_.dynamic_
+              planning_manager_->pp_.dynamic_
                 ? edt_env->evaluateCoarseEDT(new_pt, /* time to program start */ info->duration_)
                 : edt_env->evaluateCoarseEDT(new_pt, -1.0);
 
@@ -355,7 +355,7 @@ void TopoReplanFSM::checkCollisionCallback()
   /* ---------- check trajectory ---------- */
   if (exec_state_ == EXEC_TRAJ || exec_state_ == REPLAN_TRAJ) {
     double dist;
-    bool safe = planner_manager_->checkTrajCollision(dist);
+    bool safe = planning_manager_->checkTrajCollision(dist);
     if (!safe) {
       if (dist > 0.5) {
         RCLCPP_WARN(node_->get_logger(), "current traj %lf m to collision", dist);
@@ -383,15 +383,15 @@ bool TopoReplanFSM::callTopologicalTraj(int step)
   bool plan_success;
 
   if (step == 1) {
-    plan_success = planner_manager_->planGlobalTraj(start_pt_);
+    plan_success = planning_manager_->planGlobalTraj(start_pt_);
   } else {
-    plan_success = planner_manager_->topoReplan(collide_);
+    plan_success = planning_manager_->topoReplan(collide_);
   }
 
   if (plan_success) {
-    planner_manager_->planYaw(start_yaw_);
+    planning_manager_->planYaw(start_yaw_);
 
-    LocalTrajData * locdat = &planner_manager_->local_data_;
+    LocalTrajData * locdat = &planning_manager_->local_data_;
 
     /* publish newest trajectory to server */
 
@@ -426,9 +426,9 @@ bool TopoReplanFSM::callTopologicalTraj(int step)
     bspline_pub_->publish(bspline);
 
     /* visualize new trajectories */
-    MidPlanData * plan_data = &planner_manager_->plan_data_;
+    MidPlanData * plan_data = &planning_manager_->plan_data_;
     visualization_->drawPolynomialTraj(
-      planner_manager_->global_data_.global_traj_, 0.05, Eigen::Vector4d(0, 0, 0, 1), 0);
+      planning_manager_->global_data_.global_traj_, 0.05, Eigen::Vector4d(0, 0, 0, 1), 0);
     visualization_->drawBspline(
       locdat->position_traj_, 0.08, Eigen::Vector4d(1.0, 0.0, 0.0, 1), false, 0.15,
       Eigen::Vector4d(1.0, 1.0, 1.0, 1), 99, 99);

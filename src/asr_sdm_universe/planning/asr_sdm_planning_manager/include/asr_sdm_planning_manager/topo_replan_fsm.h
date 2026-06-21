@@ -38,7 +38,7 @@ private:
   enum TARGET_TYPE { MANUAL_TARGET = 1, PRESET_TARGET = 2, REFENCE_PATH = 3 };
 
   /* planning utils */
-  FastPlannerManager::Ptr planner_manager_;
+  PlanningManager::Ptr planning_manager_;
   PlanningVisualization::Ptr visualization_;
 
   /* parameters */

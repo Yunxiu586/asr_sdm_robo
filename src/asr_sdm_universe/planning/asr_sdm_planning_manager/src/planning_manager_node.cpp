@@ -23,21 +23,20 @@ namespace amprobo
 
 // SECTION interfaces for setup and query
 
-FastPlannerManager::FastPlannerManager()
+PlanningManager::PlanningManager()
 {
 }
 
-FastPlannerManager::~FastPlannerManager()
+PlanningManager::~PlanningManager()
 {
-  RCLCPP_INFO(rclcpp::get_logger("FastPlannerManager"), "des manager");
+  RCLCPP_INFO(rclcpp::get_logger("PlanningManager"), "des manager");
 }
 
-void FastPlannerManager::initPlanModules(const std::shared_ptr<rclcpp::Node> & nh)
+void PlanningManager::initPlanModules(const std::shared_ptr<rclcpp::Node> & nh)
 {
   node_ = nh;
 
   /* read algorithm parameters */
-
   node_->declare_parameter("manager.max_vel", -1.0);
   node_->declare_parameter("manager.max_acc", -1.0);
   node_->declare_parameter("manager.max_jerk", -1.0);
@@ -89,12 +88,12 @@ void FastPlannerManager::initPlanModules(const std::shared_ptr<rclcpp::Node> & n
   }
 }
 
-void FastPlannerManager::setGlobalWaypoints(vector<Eigen::Vector3d> & waypoints)
+void PlanningManager::setGlobalWaypoints(vector<Eigen::Vector3d> & waypoints)
 {
   plan_data_.global_waypoints_ = waypoints;
 }
 
-bool FastPlannerManager::checkTrajCollision(double & distance)
+bool PlanningManager::checkTrajCollision(double & distance)
 {
   double t_now = (node_->now() - local_data_.start_time_).seconds();
 
@@ -126,7 +125,7 @@ bool FastPlannerManager::checkTrajCollision(double & distance)
 
 // SECTION topological replanning
 
-bool FastPlannerManager::planGlobalTraj(const Eigen::Vector3d & start_pos)
+bool PlanningManager::planGlobalTraj(const Eigen::Vector3d & start_pos)
 {
   plan_data_.clearTopoPaths();
 
@@ -199,7 +198,7 @@ bool FastPlannerManager::planGlobalTraj(const Eigen::Vector3d & start_pos)
   return true;
 }
 
-bool FastPlannerManager::topoReplan(bool collide)
+bool PlanningManager::topoReplan(bool collide)
 {
   rclcpp::Time t1, t2;
 
@@ -256,8 +255,8 @@ bool FastPlannerManager::topoReplan(bool collide)
       vector<thread> optimize_threads;
       for (size_t i = 0; i < select_paths.size(); ++i) {
         optimize_threads.emplace_back(
-          &FastPlannerManager::optimizeTopoBspline, this, t_now, local_traj_duration,
-          select_paths[i], int(i));
+          &PlanningManager::optimizeTopoBspline, this, t_now, local_traj_duration, select_paths[i],
+          int(i));
         // optimizeTopoBspline(t_now, local_traj_duration,
         // select_paths[i], origin_len, i);
       }
@@ -277,17 +276,19 @@ bool FastPlannerManager::topoReplan(bool collide)
   return true;
 }
 
-void FastPlannerManager::selectBestTraj(fast_planner::NonUniformBspline & traj)
+void PlanningManager::selectBestTraj(fast_planner::NonUniformBspline & traj)
 {
   // sort by jerk
   vector<fast_planner::NonUniformBspline> & trajs = plan_data_.topo_traj_pos2_;
-  sort(trajs.begin(), trajs.end(), [&](fast_planner::NonUniformBspline & tj1, fast_planner::NonUniformBspline & tj2) {
-    return tj1.getJerk() < tj2.getJerk();
-  });
+  sort(
+    trajs.begin(), trajs.end(),
+    [&](fast_planner::NonUniformBspline & tj1, fast_planner::NonUniformBspline & tj2) {
+      return tj1.getJerk() < tj2.getJerk();
+    });
   traj = trajs[0];
 }
 
-void FastPlannerManager::refineTraj(fast_planner::NonUniformBspline & best_traj, double & time_inc)
+void PlanningManager::refineTraj(fast_planner::NonUniformBspline & best_traj, double & time_inc)
 {
   rclcpp::Time t1 = node_->now();
   time_inc = 0.0;
@@ -310,7 +311,7 @@ void FastPlannerManager::refineTraj(fast_planner::NonUniformBspline & best_traj,
     "[Refine]: cost " << (node_->now() - t1).seconds() << " seconds, time change is: " << time_inc);
 }
 
-void FastPlannerManager::updateTrajInfo()
+void PlanningManager::updateTrajInfo()
 {
   local_data_.velocity_traj_ = local_data_.position_traj_.getDerivative();
   local_data_.acceleration_traj_ = local_data_.velocity_traj_.getDerivative();
@@ -319,7 +320,7 @@ void FastPlannerManager::updateTrajInfo()
   local_data_.traj_id_ += 1;
 }
 
-void FastPlannerManager::reparamBspline(
+void PlanningManager::reparamBspline(
   fast_planner::NonUniformBspline & bspline, double ratio, Eigen::MatrixXd & ctrl_pts, double & dt,
   double & time_inc)
 {
@@ -343,7 +344,7 @@ void FastPlannerManager::reparamBspline(
   // ROS_WARN("prev: %d, new: %d", prev_num, ctrl_pts.rows());
 }
 
-void FastPlannerManager::optimizeTopoBspline(
+void PlanningManager::optimizeTopoBspline(
   double start_t, double duration, vector<Eigen::Vector3d> guide_path, int traj_id)
 {
   rclcpp::Time t1;
@@ -398,7 +399,7 @@ void FastPlannerManager::optimizeTopoBspline(
     node_->get_logger(), "optimization %d cost %lf, %lf, %lf seconds.", traj_id, tm1, tm2, tm3);
 }
 
-Eigen::MatrixXd FastPlannerManager::reparamLocalTraj(double start_t, double & dt, double & duration)
+Eigen::MatrixXd PlanningManager::reparamLocalTraj(double start_t, double & dt, double & duration)
 {
   /* get the sample points local traj within radius */
 
@@ -411,14 +412,15 @@ Eigen::MatrixXd FastPlannerManager::reparamLocalTraj(double start_t, double & dt
   /* parameterization of B-spline */
 
   Eigen::MatrixXd ctrl_pts;
-  fast_planner::NonUniformBspline::parameterizeToBspline(dt, point_set, start_end_derivative, ctrl_pts);
+  fast_planner::NonUniformBspline::parameterizeToBspline(
+    dt, point_set, start_end_derivative, ctrl_pts);
   plan_data_.local_start_end_derivative_ = start_end_derivative;
   // cout << "ctrl pts:" << ctrl_pts.rows() << endl;
 
   return ctrl_pts;
 }
 
-Eigen::MatrixXd FastPlannerManager::reparamLocalTraj(
+Eigen::MatrixXd PlanningManager::reparamLocalTraj(
   double start_t, double duration, int seg_num, double & dt)
 {
   vector<Eigen::Vector3d> point_set;
@@ -429,13 +431,14 @@ Eigen::MatrixXd FastPlannerManager::reparamLocalTraj(
 
   /* parameterization of B-spline */
   Eigen::MatrixXd ctrl_pts;
-  fast_planner::NonUniformBspline::parameterizeToBspline(dt, point_set, start_end_derivative, ctrl_pts);
+  fast_planner::NonUniformBspline::parameterizeToBspline(
+    dt, point_set, start_end_derivative, ctrl_pts);
   // cout << "ctrl pts:" << ctrl_pts.rows() << endl;
 
   return ctrl_pts;
 }
 
-void FastPlannerManager::findCollisionRange(
+void PlanningManager::findCollisionRange(
   vector<Eigen::Vector3d> & colli_start, vector<Eigen::Vector3d> & colli_end,
   vector<Eigen::Vector3d> & start_pts, vector<Eigen::Vector3d> & end_pts)
 {
@@ -495,7 +498,7 @@ void FastPlannerManager::findCollisionRange(
 
 // !SECTION
 
-void FastPlannerManager::planYaw(const Eigen::Vector3d & start_yaw)
+void PlanningManager::planYaw(const Eigen::Vector3d & start_yaw)
 {
   RCLCPP_INFO(node_->get_logger(), "plan yaw");
   auto t1 = node_->now();
@@ -568,7 +571,7 @@ void FastPlannerManager::planYaw(const Eigen::Vector3d & start_yaw)
   RCLCPP_INFO_STREAM(node_->get_logger(), "plan heading: " << (node_->now() - t1).seconds());
 }
 
-void FastPlannerManager::calcNextYaw(const double & last_yaw, double & yaw)
+void PlanningManager::calcNextYaw(const double & last_yaw, double & yaw)
 {
   // round yaw to [-PI, PI]
 
