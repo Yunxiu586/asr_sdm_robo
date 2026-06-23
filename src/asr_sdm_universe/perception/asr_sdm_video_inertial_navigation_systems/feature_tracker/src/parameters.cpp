@@ -23,6 +23,7 @@ int FISHEYE;
 bool PUB_THIS_FRAME;
 
 int   USE_SPARSE_ALIGN;
+int   USE_TD_PRE_CALIB;     // D2.2: enable a second pure-vision align pass + td estimator
 int   SPARSE_ALIGN_PATCH_SIZE;
 int   SPARSE_ALIGN_MAX_LEVEL;
 int   SPARSE_ALIGN_MIN_LEVEL;
@@ -119,6 +120,7 @@ void readParameters(rclcpp::Node::SharedPtr &n)
     };
 
     USE_SPARSE_ALIGN          = readInt("use_sparse_align", 0);
+    USE_TD_PRE_CALIB          = readInt("use_td_pre_calib", 0);  // D2.2: default off
     SPARSE_ALIGN_PATCH_SIZE   = readInt("sparse_align_patch_size", 4);
     SPARSE_ALIGN_MAX_LEVEL    = readInt("sparse_align_max_level", 3);
     SPARSE_ALIGN_MIN_LEVEL    = readInt("sparse_align_min_level", 1);
@@ -129,11 +131,11 @@ void readParameters(rclcpp::Node::SharedPtr &n)
     SPARSE_ALIGN_MIN_FEATURES = readInt("sparse_align_min_features", 30);
     SPARSE_ALIGN_MIN_ITER_FOR_OK = readInt("sparse_align_min_iter_for_ok", 2);
 
-    RCUTILS_LOG_INFO("sparse_align enabled: %d (patch=%d, levels=[%d,%d], lambda_rot=%.3f, chi2_thresh=%.1f, min_features=%d)",
+    RCUTILS_LOG_INFO("sparse_align enabled: %d (patch=%d, levels=[%d,%d], lambda_rot=%.3f, chi2_thresh=%.1f, min_features=%d, td_pre_calib=%d)",
                 USE_SPARSE_ALIGN, SPARSE_ALIGN_PATCH_SIZE,
                 SPARSE_ALIGN_MIN_LEVEL, SPARSE_ALIGN_MAX_LEVEL,
                 SPARSE_ALIGN_LAMBDA_ROT, SPARSE_ALIGN_CHI2_THRESH,
-                SPARSE_ALIGN_MIN_FEATURES);
+                SPARSE_ALIGN_MIN_FEATURES, USE_TD_PRE_CALIB);
 
     WINDOW_SIZE = 20;
     STEREO_TRACK = false;

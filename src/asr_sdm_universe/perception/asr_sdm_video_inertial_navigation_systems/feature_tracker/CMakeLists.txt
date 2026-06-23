@@ -33,6 +33,7 @@ add_executable(feature_tracker_node
     src/feature_tracker.cpp
     src/imu_preintegrate.cpp
     src/sparse_img_align.cpp
+    src/td_pre_calibrator/td_pre_calibrator.cpp
     )
 
 ament_target_dependencies(feature_tracker_node

@@ -1,6 +1,7 @@
 #include "feature_tracker.h"
 
 #include "half_sample.h"
+#include "td_pre_calibrator/td_pre_calibrator.h"
 
 int FeatureTracker::n_id = 0;
 
@@ -195,12 +196,30 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
         opt.image_width     = COL;
         opt.image_height    = ROW;
 
+        // ----- (a) WITH IMU prior (the production path) -----
         auto align_res = vins_sparse::sparseAlign(
             prev_pyr_, cur_pyr_, cur_pts, ref_bearings,
             R_prev_cur_, Eigen::Vector3d::Zero(), opt);
 
         // D2.1: stash for the node to publish.
         last_align_res_ = align_res;
+
+        // ----- (b) D2.2: PURE-VISION re-alignment for the td pre-calib.
+        //  Same pyr, same ref_pts, but lambda_rot=0 and R_prior=Identity.
+        //  The result R_vision is the rotation the camera would estimate
+        //  if the IMU were not biased by a wrong td.  We run this only
+        //  when the user enabled the calibrator (default off; cheap if on).
+        if (USE_TD_PRE_CALIB) {
+            vins_sparse::SparseAlignOptions opt_v = opt;
+            opt_v.lambda_rot   = 0.0;
+            opt_v.lambda_trans = 0.0;
+            last_align_vision_res_ = vins_sparse::sparseAlign(
+                prev_pyr_, cur_pyr_, cur_pts, ref_bearings,
+                Eigen::Matrix3d::Identity(), Eigen::Vector3d::Zero(), opt_v);
+            has_align_vision_res_ = true;
+        } else {
+            has_align_vision_res_ = false;
+        }
 
         // Stats logging.
         ++n_sparse_frames_;

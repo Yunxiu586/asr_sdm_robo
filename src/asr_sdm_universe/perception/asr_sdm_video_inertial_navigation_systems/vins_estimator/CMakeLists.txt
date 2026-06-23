@@ -40,6 +40,7 @@ add_executable(vins_estimator
     src/factor/projection_factor.cpp
     src/factor/projection_td_factor.cpp
     src/factor/marginalization_factor.cpp
+    src/loop_geometric_verifier/loop_geometric_verifier.cpp
     src/utility/utility.cpp
     src/utility/visualization.cpp
     src/utility/CameraPoseVisualization.cpp

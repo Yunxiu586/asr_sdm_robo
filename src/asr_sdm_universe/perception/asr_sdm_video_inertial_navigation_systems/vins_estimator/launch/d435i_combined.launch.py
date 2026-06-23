@@ -31,6 +31,10 @@ SPARSE_SECTION_BODY = (
     'sparse_align_chi2_thresh: 50.0\n'
     'sparse_align_min_features: 30\n'
     'sparse_align_min_iter_for_ok: 1\n'
+    '# D2.2: camera-IMU time-offset pre-calibration (W2)\n'
+    '# Uses pure-vision R from sparse_align + gyro integration to\n'
+    '# estimate td, then feeds it to the BA as a fixed initial guess.\n'
+    'use_td_pre_calib: 1\n'
 )
 
 
@@ -146,6 +150,7 @@ def _launch_pipelines(context, *args, **kwargs):
             ('/feature_tracker/restart', f'/{ns}/restart'),
             ('/pose_graph/match_points', f'/{ns}/match_points'),
             ('/feature_tracker/sparse_rot', f'/{ns}/sparse_rot'),  # D2.1
+            ('/feature_tracker/td_estimate', f'/{ns}/td_estimate'),  # D2.2
         ]
         ve_remaps = ve_sub_remaps + ve_remaps
         # pose_graph relative publishers

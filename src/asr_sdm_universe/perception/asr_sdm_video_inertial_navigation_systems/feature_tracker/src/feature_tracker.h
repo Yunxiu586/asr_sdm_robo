@@ -62,6 +62,12 @@ class FeatureTracker
     // Written by readImage() whenever USE_SPARSE_ALIGN && have_imu_prior_.
     // Node reads trackerData[i].last_align_res_ after readImage returns.
     vins_sparse::SparseAlignResult last_align_res_;
+    // Pure-vision (no IMU prior) alignment result.  Set by
+    // computeVisionOnlyRotation() if called.  Used by the front-end node
+    // to feed the td pre-calibrator.  See
+    // td_pre_calibrator/td_pre_calibrator.h for the use case.
+    vins_sparse::SparseAlignResult last_align_vision_res_;
+    bool has_align_vision_res_ = false;
 
     cv::Mat mask;
     cv::Mat fisheye_mask;

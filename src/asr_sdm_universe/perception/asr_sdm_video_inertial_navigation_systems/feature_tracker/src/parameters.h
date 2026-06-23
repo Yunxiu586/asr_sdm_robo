@@ -31,6 +31,7 @@ extern bool PUB_THIS_FRAME;
 
 // Sparse image alignment (SVO-style semi-direct refinement in the front-end).
 extern int   USE_SPARSE_ALIGN;
+extern int   USE_TD_PRE_CALIB;        // D2.2: extra pure-vision align + td estimator
 extern int   SPARSE_ALIGN_PATCH_SIZE;
 extern int   SPARSE_ALIGN_MAX_LEVEL;
 extern int   SPARSE_ALIGN_MIN_LEVEL;

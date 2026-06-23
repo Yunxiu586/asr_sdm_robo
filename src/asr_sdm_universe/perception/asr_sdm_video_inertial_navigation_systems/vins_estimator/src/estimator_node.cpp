@@ -7,11 +7,13 @@
 #include <rclcpp/rclcpp.hpp>
 #include <cv_bridge/cv_bridge.hpp>
 #include <opencv2/opencv.hpp>
+#include <std_msgs/msg/float64.hpp>
 
 #include "estimator.h"
 #include "parameters.h"
 #include "utility/visualization.h"
 #include <asr_sdm_perception_msgs/msg/sparse_rot.hpp>
+#include <std_msgs/msg/float64.hpp>
 
 
 Estimator estimator;
@@ -203,8 +205,20 @@ void relocalization_callback(const sensor_msgs::msg::PointCloud::SharedPtr point
     m_buf.unlock();
 }
 
-// D2.1: receive sparse_align R from feature_tracker, cache it for processImage.
-// NOT called in the optimization path -- only writes static members.
+// D2.2: receive td pre-calibration estimate from feature_tracker.
+// Writes to estimator.td; no BA change, just better initial guess.
+void td_estimate_callback(const std_msgs::msg::Float64::SharedPtr msg)
+{
+    if (!std::isfinite(msg->data)) return;
+    // Sanity gate: only accept within [-50ms, +50ms]
+    if (std::abs(msg->data) > 0.050) return;
+    std::lock_guard<std::mutex> lg(m_estimator);
+    estimator.td = msg->data;
+    RCLCPP_DEBUG(rclcpp::get_logger("vins_estimator"),
+                 "[TD_EST] estimator.td <- %.4f ms", msg->data * 1000.0);
+}
+
+
 void sparse_rot_callback(const asr_sdm_perception_msgs::msg::SparseRot::SharedPtr msg)
 {
     if (!msg->success || msg->n_meas < 30) return;
@@ -376,6 +390,9 @@ int main(int argc, char **argv)
     // D2.1: subscribe to sparse_align rotation from feature_tracker (launch remaps to /{ns}/sparse_rot)
     auto sub_sparse_rot = n->create_subscription<asr_sdm_perception_msgs::msg::SparseRot>(
         "/feature_tracker/sparse_rot", rclcpp::QoS(rclcpp::KeepLast(2000)), sparse_rot_callback);
+    // D2.2: subscribe to td pre-calibration from feature_tracker (launch remaps to /{ns}/td_estimate)
+    auto sub_td_estimate = n->create_subscription<std_msgs::msg::Float64>(
+        "/feature_tracker/td_estimate", rclcpp::QoS(rclcpp::KeepLast(100)), td_estimate_callback);
 
     std::thread measurement_process{process};
     rclcpp::spin(n);

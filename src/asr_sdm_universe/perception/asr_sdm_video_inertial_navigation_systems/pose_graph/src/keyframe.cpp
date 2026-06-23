@@ -1,4 +1,5 @@
 #include "keyframe.h"
+#include "loop_geometric_verifier/loop_geometric_verifier.h"
 
 template <typename Derived>
 static void reduceVector(vector<Derived> &v, vector<uchar> status)
@@ -477,7 +478,63 @@ bool KeyFrame::findConnection(KeyFrame* old_kf)
 	    //printf("PNP relative\n");
 	    //cout << "pnp relative_t " << relative_t.transpose() << endl;
 	    //cout << "pnp relative_yaw " << relative_yaw << endl;
-	    if (abs(relative_yaw) < 30.0 && relative_t.norm() < 20.0)
+
+	    // D2.2: geometric re-verification.  PnP+RANSAC already threw
+	    // out the obvious outliers; this catches perceptual aliasing
+	    // and pathological BRIEF matches under big viewpoint change.
+	    // We build the camera-frame poses for both kfs and feed the
+	    // world-frame landmark cloud (cur_kf::point_3d) to the
+	    // verifier.  The verifier returns a one-shot verdict.
+	    bool geometric_ok = true;
+	    {
+	        vins_sparse::LoopVerifOptions vopt;
+	        vopt.image_width  = COL;
+	        vopt.image_height = ROW;
+	        vopt.inlier_px_thresh  = 8.0;
+	        vopt.median_px_thresh  = 5.0;
+	        vopt.min_inliers       = std::max(8, (int)matched_2d_cur.size() / 5);
+	        vopt.min_inlier_ratio  = 0.30;
+
+	        // World -> cur camera = VIO pose * (qic, tic).
+	        Eigen::Matrix3d R_w_cur_cam = origin_vio_R * qic;
+	        Eigen::Vector3d t_w_cur_cam = origin_vio_T + origin_vio_R * tic;
+	        // World -> old camera: take PnP's world -> old_cam directly.
+	        Eigen::Matrix3d R_w_old_cam = PnP_R_old;
+	        Eigen::Vector3d t_w_old_cam = PnP_T_old;
+
+	        std::vector<Eigen::Vector3d> pts_w;
+	        std::vector<Eigen::Vector2d> obs_cur, obs_old;
+	        pts_w.reserve(matched_3d.size());
+	        obs_cur.reserve(matched_2d_cur.size());
+	        obs_old.reserve(matched_2d_old.size());
+	        for (size_t i = 0; i < matched_3d.size(); ++i) {
+	            pts_w.emplace_back(matched_3d[i].x,
+	                                matched_3d[i].y,
+	                                matched_3d[i].z);
+	        }
+	        for (size_t i = 0; i < matched_2d_cur.size(); ++i) {
+	            obs_cur.emplace_back(matched_2d_cur[i].x,
+	                                 matched_2d_cur[i].y);
+	        }
+	        for (size_t i = 0; i < matched_2d_old.size(); ++i) {
+	            obs_old.emplace_back(matched_2d_old[i].x,
+	                                 matched_2d_old[i].y);
+	        }
+
+	        vins_sparse::LoopGeometricVerifier v(vopt);
+	        const auto vr = v.verify(R_w_cur_cam, t_w_cur_cam,
+	                                 R_w_old_cam, t_w_old_cam,
+	                                 pts_w, obs_cur, obs_old,
+	                                 m_camera);
+	        geometric_ok = vr.verified;
+	        printf("[LOOP_VERIF] cur=%d old=%d tested=%d fwd_inliers=%d "
+	               "bwd_inliers=%d median=%.2fpx inlier_ratio=%.2f -> %s\n",
+	               index, old_kf->index, vr.n_tested, vr.n_inliers_forward,
+	               vr.n_inliers_backward, vr.median_residual_px,
+	               vr.inlier_ratio, vr.verified ? "PASS" : "REJECT");
+	    }
+
+	    if (abs(relative_yaw) < 30.0 && relative_t.norm() < 20.0 && geometric_ok)
 	    {
 
 	    	has_loop = true;
